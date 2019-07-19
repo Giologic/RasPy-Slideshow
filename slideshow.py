@@ -49,21 +49,21 @@ class SlideShowApp(object):
         self.group_scheduled = {}   #placeholder for futer slides
         
         self.group_seasonal = {
-                               1: {
-                                   'category': 'Holidays', 'method': 'image', 
-                                   'slides': {
-                                               1 : { 'name': 'Christmas', 'months': [12], 'path': 'Holidays/Christmas'},
-                                               2 : { 'name': 'Easter', 'months': [4], 'path': 'Holidays/Easter'},
-                                               3 : { 'name': 'Halloween', 'months': [10], 'path': 'Holidays/Halloween'},
-                                               4 : { 'name': 'Independence', 'months': [7], 'path': 'Holidays/Independence'},
-                                               5 : { 'name': 'Labor', 'months': [9], 'path': 'Holidays/Labor'},
-                                               6 : { 'name': 'Memorial', 'months': [5], 'path': 'Holidays/Memorial'},
-                                               8 : { 'name': 'Mothers', 'months': [5], 'path': 'Holidays/Mothers'},
-                                               9 : { 'name': 'NewYear', 'months': [1], 'path': 'Holidays/NewYear'},
-                                               10 : { 'name': 'Thanksgiving', 'months': [11], 'path': 'Holidays/Thanksgiving'},
-                                               11 : { 'name': 'Valentines', 'months': [2], 'path': 'Holidays/Valentines'}
-                                               }
-                                   },
+                            #    1: {
+                            #        'category': 'Holidays', 'method': 'image', 
+                            #        'slides': {
+                            #                    1 : { 'name': 'Christmas', 'months': [12], 'path': 'Holidays/Christmas'},
+                            #                    2 : { 'name': 'Easter', 'months': [4], 'path': 'Holidays/Easter'},
+                            #                    3 : { 'name': 'Halloween', 'months': [10], 'path': 'Holidays/Halloween'},
+                            #                    4 : { 'name': 'Independence', 'months': [7], 'path': 'Holidays/Independence'},
+                            #                    5 : { 'name': 'Labor', 'months': [9], 'path': 'Holidays/Labor'},
+                            #                    6 : { 'name': 'Memorial', 'months': [5], 'path': 'Holidays/Memorial'},
+                            #                    8 : { 'name': 'Mothers', 'months': [5], 'path': 'Holidays/Mothers'},
+                            #                    9 : { 'name': 'NewYear', 'months': [1], 'path': 'Holidays/NewYear'},
+                            #                    10 : { 'name': 'Thanksgiving', 'months': [11], 'path': 'Holidays/Thanksgiving'},
+                            #                    11 : { 'name': 'Valentines', 'months': [2], 'path': 'Holidays/Valentines'}
+                            #                    }
+                            #        },
                                
                                2: {
                                    'category': 'Seasons', 'method': 'image',
@@ -92,6 +92,14 @@ class SlideShowApp(object):
                803 : 'LightClouds', 
                804 : 'OverCast'
                }
+
+        #Advertisement API
+        self.advertisement_last_update = None
+        self.advertisement_update_frequency = datetime.timedelta(seconds=3600)
+        self.advertisement_cache = None
+        self.advertisement_api_path = 'http://api.openweathermap.org/data/2.5/weather?zip=77034,us&units=imperial&APPID=bf21b5e020e1fcdbe8' #replace 77034 with your zip code
+
+
         
     def toggle_fullscreen(self, event=None):
         self.state = not self.state
@@ -117,6 +125,39 @@ class SlideShowApp(object):
         return json.loads(content.decode())
         
     def fetch_weather(self):
+        result = self.json_request(path=self.weather_api_path)
+        
+        #get temperature from "main" set 
+        if 'main' in result:
+            temperature = int(result['main']['temp'])
+            
+        #parse weather conditions
+        weather_conditions = []
+        weather_context = None
+        weather_context_images = []
+        
+        if 'weather' in result:
+            weather_list = result['weather']
+            for condition in weather_list:
+                weather_conditions.append(condition['description'].title())
+                if condition['main'] in self.weather_types:
+                    weather_context_images.append(condition['main'])
+                elif condition['id'] in self.weather_cloud_types:
+                    weather_context_images.append(self.weather_cloud_types.get(condition['id'], None))
+                    
+            weather_context = ', '.join(weather_conditions)
+            
+            self.weather_last_update = datetime.datetime.now()
+            self.weather_cache = {
+                                  'temperature': temperature,
+                                  'description': weather_context,
+                                  'background': weather_context_images[0]
+                                  }
+            print('updating weather cache at', self.weather_last_update)
+            print(self.weather_cache)
+
+            
+    def fetch_advertisment(self):
         result = self.json_request(path=self.weather_api_path)
         
         #get temperature from "main" set 
