@@ -99,7 +99,7 @@ class SlideShowApp(object):
         self.advertisement_last_update = None
         self.advertisement_update_frequency = datetime.timedelta(seconds=3600)
         self.advertisement_cache = None
-        self.advertisement_api_path = 'http://localhost:5000/api/v1/advertisements' #replace 77034 with your zip code
+        self.advertisement_api_path = 'http://192.168.2.233:5000/api/v1/advertisements' #replace 77034 with your zip code
 
 
         
@@ -213,6 +213,7 @@ class SlideShowApp(object):
     def get_image(self, path):
         #global tkpi        
         image = Image.open(path)
+        image = image.resize((self.tk.winfo_screenwidth(), self.tk.winfo_screenheight()))
         self.tk.geometry('%dx%d' % (image.size[0], image.size[1]))
         self.tkpi = ImageTk.PhotoImage(image)
         
