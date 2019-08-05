@@ -4,6 +4,8 @@ import json, httplib2
 import urllib.request
 import datetime
 from PIL import Image, ImageTk
+from decouple import config
+import requests
 
 class SlideShowApp(object):
     def __init__(self):        
@@ -99,8 +101,9 @@ class SlideShowApp(object):
         self.advertisement_last_update = None
         self.advertisement_update_frequency = datetime.timedelta(seconds=3600)
         self.advertisement_cache = None
-        self.advertisement_api_path = 'http://192.168.2.233:5000/api/v1/advertisements' #replace 77034 with your zip code
-
+        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/5d47f6d787ce72272a9a442d' #replace 77034 with your zip code
+        self.access_token = None
+        self.login()
 
         
     def toggle_fullscreen(self, event=None):
@@ -114,7 +117,11 @@ class SlideShowApp(object):
     
     def callback(self):
         get_image()
-        
+
+    def login(self):
+        response = requests.post('http://54.255.190.93/api/v1/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
+        self.access_token = response.json().get('token')
+    
     def json_request(self, method='GET', path=None, body=None):
         connection = httplib2.Http()
         response, content = connection.request(
@@ -123,7 +130,6 @@ class SlideShowApp(object):
                                                headers = {'Content-Type': 'application/json; charset=UTF-8'},
                                                body = body,
                                                )
-        
         return json.loads(content.decode())
         
     def fetch_weather(self):
@@ -160,8 +166,9 @@ class SlideShowApp(object):
 
             
     def fetch_advertisement(self):
-        result = self.json_request(path=self.advertisement_api_path)
-        for advertisement in result:
+        result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
+        print(result.json())
+        for advertisement in result.json():
             urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title')+ ".jpg")
         
         
@@ -203,7 +210,6 @@ class SlideShowApp(object):
             self.update_eligible_slides()
             
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
-            self.fetch_weather()
             self.fetch_advertisement()
             
             
