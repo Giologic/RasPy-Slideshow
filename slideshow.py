@@ -101,7 +101,7 @@ class SlideShowApp(object):
         self.advertisement_last_update = None
         self.advertisement_update_frequency = datetime.timedelta(seconds=3600)
         self.advertisement_cache = None
-        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/5d47f6d787ce72272a9a442d' #replace 77034 with your zip code
+        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId')  #replace 77034 with your zip code
         self.access_token = None
         self.login()
 
