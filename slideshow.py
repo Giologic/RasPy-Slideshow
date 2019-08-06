@@ -170,6 +170,8 @@ class SlideShowApp(object):
         print(result.json())
         for advertisement in result.json():
             urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title')+ ".jpg")
+            #with open("Images/cache/" + advertisement.get('title'), 'wb') as f:
+            #        f.write(requests.get(advertisement.get('url').content))
         
         
     def update_eligible_slides(self):        
