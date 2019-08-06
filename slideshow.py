@@ -169,7 +169,7 @@ class SlideShowApp(object):
         result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
         print(result.json())
         for advertisement in result.json():
-            urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title')+ ".jpg")
+            urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title'))
             #with open("Images/cache/" + advertisement.get('title'), 'wb') as f:
             #        f.write(requests.get(advertisement.get('url').content))
         
