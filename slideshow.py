@@ -167,7 +167,7 @@ class SlideShowApp(object):
             
     def fetch_advertisement(self):
         result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
-        print(result.json())
+        # print(result.json())
         for advertisement in result.json():
             urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title'))
         
@@ -179,15 +179,14 @@ class SlideShowApp(object):
     def update_advertisement(self):     # Update advertisement by reflecting/removing deleted ads in Images/cache
         ad_list = []
         result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
-        print(result.json())
         for ad in result.json():
             if ad not in ad_list:
                 ad_list.append(ad.get('title'))
-        print("Ad list: ", ad_list)
+        # print("Ad list: ", ad_list)
 
         cache_dir = 'Images/cache/'
         cache_files = os.listdir(cache_dir)
-        print("Cache files: ", cache_files)
+        # print("Cache files: ", cache_files)
 
         for file in cache_files:
             if file not in ad_list:
@@ -234,7 +233,7 @@ class SlideShowApp(object):
             self.update_eligible_slides()
             
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
-            # self.fetch_advertisement()
+            self.fetch_advertisement()
             self.update_advertisement()
             
         self.prepare_slide()
