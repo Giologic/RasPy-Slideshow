@@ -170,10 +170,31 @@ class SlideShowApp(object):
         print(result.json())
         for advertisement in result.json():
             urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title'))
-            #with open("Images/cache/" + advertisement.get('title'), 'wb') as f:
-            #        f.write(requests.get(advertisement.get('url').content))
         
-        
+            # https://adtech-s3.s3.amazonaws.com/advertisements/Screen%Shot%2019-08-05%at%6.35.29%PM.png
+            # real url: 'https://adtech-s3.s3.amazonaws.com/advertisements/Screen Shot 2019-08-05 at 6.35.29 PM.png'
+            # browser url: https://adtech-s3.s3.amazonaws.com/advertisements/Screen%20Shot%202019-08-05%20at%206.35.29%20PM.png
+
+
+    def update_advertisement(self):     # Update advertisement by reflecting/removing deleted ads in Images/cache
+        ad_list = []
+        result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
+        print(result.json())
+        for ad in result.json():
+            if ad not in ad_list:
+                ad_list.append(ad.get('title'))
+        print("Ad list: ", ad_list)
+
+        cache_dir = 'Images/cache/'
+        cache_files = os.listdir(cache_dir)
+        print("Cache files: ", cache_files)
+
+        for file in cache_files:
+            if file not in ad_list:
+                print(file)
+                os.remove(cache_dir+file)
+
+
     def update_eligible_slides(self):        
         #reset eligible to default
         self.eligible_slides = self.group_static
@@ -185,6 +206,7 @@ class SlideShowApp(object):
         #             self.eligible_slides[4]['slides'][counter] = y
         #             counter += 1        
         
+
     def prepare_slide(self):            
         #pick a group  
         group = random.choice(list(self.eligible_slides))
@@ -212,8 +234,8 @@ class SlideShowApp(object):
             self.update_eligible_slides()
             
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
-            self.fetch_advertisement()
-            
+            # self.fetch_advertisement()
+            self.update_advertisement()
             
         self.prepare_slide()
         self.tk.after(5000, self.slideshow)    
