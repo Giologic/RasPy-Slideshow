@@ -1,5 +1,8 @@
 import tkinter as tk
 import os, random, sys
+from os import path
+import os.path
+from os.path import abspath, dirname
 import json, httplib2
 import urllib.request
 import datetime
@@ -104,6 +107,7 @@ class SlideShowApp(object):
         self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId')  #replace 77034 with your zip code
         self.access_token = None
         self.login()
+        self.dir = os.path.dirname(os.path.abspath(__file__))
 
         
     def toggle_fullscreen(self, event=None):
@@ -169,7 +173,7 @@ class SlideShowApp(object):
         result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
         # print(result.json())
         for advertisement in result.json():
-            urllib.request.urlretrieve(advertisement.get('url'),  "Images/cache/" + advertisement.get('title'))
+            urllib.request.urlretrieve(advertisement.get('url'),  self.dir + "/Images/cache/" + advertisement.get('title'))
         
             # https://adtech-s3.s3.amazonaws.com/advertisements/Screen%Shot%2019-08-05%at%6.35.29%PM.png
             # real url: 'https://adtech-s3.s3.amazonaws.com/advertisements/Screen Shot 2019-08-05 at 6.35.29 PM.png'
@@ -183,10 +187,8 @@ class SlideShowApp(object):
             if ad not in ad_list:
                 ad_list.append(ad.get('title'))
         # print("Ad list: ", ad_list)
-
-        cache_dir = 'Images/cache/'
+        cache_dir = self.dir +'/Images/cache/'
         cache_files = os.listdir(cache_dir)
-        # print("Cache files: ", cache_files)
 
         for file in cache_files:
             if file not in ad_list:
