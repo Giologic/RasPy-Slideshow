@@ -1,8 +1,14 @@
 import tkinter as tk
 import os, random, sys
+from os import path
+import os.path
+from os.path import abspath, dirname
 import json, httplib2
+import urllib.request
 import datetime
 from PIL import Image, ImageTk
+from decouple import config
+import requests
 
 class SlideShowApp(object):
     def __init__(self):        
@@ -17,30 +23,30 @@ class SlideShowApp(object):
         self.current_date = None
         self.base_dir = 'Images'        #Base directory for your images
         self.group_static = {
-                             1: {
-                                 'category': 'daily_context', 'method': 'draw',
-                                 'slides': {
-                                            1 : { 'name': 'TOD', 'path': 'TOD', 'callback': 'drawTOD'},
-                                            2 : { 'name': 'Weather', 'path': 'Weather', 'callback': 'drawWeather'}
-                                            }                                    
-                                 },
+                            #  1: {
+                            #      'category': 'daily_context', 'method': 'draw',
+                            #      'slides': {
+                            #                 1 : { 'name': 'TOD', 'path': 'TOD', 'callback': 'drawTOD'},
+                            #                 2 : { 'name': 'Weather', 'path': 'Weather', 'callback': 'drawWeather'}
+                            #                 }                                    
+                            #      },
+                            #  2: {
+                            #      'category': 'photo_context', 'method': 'image',
+                            #      'slides': {
+                            #                 1 : { 'name': 'Family', 'path': 'Family'}
+                            #                 }
+                            #      },
+                            #  3: {
+                            #      'category': 'reminders', 'method': 'image',
+                            #      'slides': {
+                            #                 1 : { 'name': 'Inspirational', 'path': 'Inspirational'},
+                            #                 2 : { 'name': 'Health', 'path': 'Health'}
+                            #                 }
+                            #      },
                              2: {
-                                 'category': 'photo_context', 'method': 'image',
+                                 'category': 'advertisements', 'method': 'image',
                                  'slides': {
-                                            1 : { 'name': 'Family', 'path': 'Family'}
-                                            }
-                                 },
-                             3: {
-                                 'category': 'reminders', 'method': 'image',
-                                 'slides': {
-                                            1 : { 'name': 'Inspirational', 'path': 'Inspirational'},
-                                            2 : { 'name': 'Health', 'path': 'Health'}
-                                            }
-                                 },
-                             4: {
-                                 'category': 'seasonal', 'method': 'image',
-                                 'slides': {
-                                            
+                                            1 : { 'name': 'cache', 'path': 'cache'}
                                             }
                                  }
                             }
@@ -48,35 +54,36 @@ class SlideShowApp(object):
         self.group_annual = {}      #placeholder for future slides
         self.group_scheduled = {}   #placeholder for futer slides
         
-        self.group_seasonal = {
-                               1: {
-                                   'category': 'Holidays', 'method': 'image', 
-                                   'slides': {
-                                               1 : { 'name': 'Christmas', 'months': [12], 'path': 'Holidays/Christmas'},
-                                               2 : { 'name': 'Easter', 'months': [4], 'path': 'Holidays/Easter'},
-                                               3 : { 'name': 'Halloween', 'months': [10], 'path': 'Holidays/Halloween'},
-                                               4 : { 'name': 'Independence', 'months': [7], 'path': 'Holidays/Independence'},
-                                               5 : { 'name': 'Labor', 'months': [9], 'path': 'Holidays/Labor'},
-                                               6 : { 'name': 'Memorial', 'months': [5], 'path': 'Holidays/Memorial'},
-                                               8 : { 'name': 'Mothers', 'months': [5], 'path': 'Holidays/Mothers'},
-                                               9 : { 'name': 'NewYear', 'months': [1], 'path': 'Holidays/NewYear'},
-                                               10 : { 'name': 'Thanksgiving', 'months': [11], 'path': 'Holidays/Thanksgiving'},
-                                               11 : { 'name': 'Valentines', 'months': [2], 'path': 'Holidays/Valentines'}
-                                               }
-                                   },
+        # self.group_seasonal = {
+                            #    1: {
+                            #        'category': 'Holidays', 'method': 'image', 
+                            #        'slides': {
+                            #                    1 : { 'name': 'Christmas', 'months': [12], 'path': 'Holidays/Christmas'},
+                            #                    2 : { 'name': 'Easter', 'months': [4], 'path': 'Holidays/Easter'},
+                            #                    3 : { 'name': 'Halloween', 'months': [10], 'path': 'Holidays/Halloween'},
+                            #                    4 : { 'name': 'Independence', 'months': [7], 'path': 'Holidays/Independence'},
+                            #                    5 : { 'name': 'Labor', 'months': [9], 'path': 'Holidays/Labor'},
+                            #                    6 : { 'name': 'Memorial', 'months': [5], 'path': 'Holidays/Memorial'},
+                            #                    8 : { 'name': 'Mothers', 'months': [5], 'path': 'Holidays/Mothers'},
+                            #                    9 : { 'name': 'NewYear', 'months': [1], 'path': 'Holidays/NewYear'},
+                            #                    10 : { 'name': 'Thanksgiving', 'months': [11], 'path': 'Holidays/Thanksgiving'},
+                            #                    11 : { 'name': 'Valentines', 'months': [2], 'path': 'Holidays/Valentines'}
+                            #                    }
+                            #        },
                                
-                               2: {
-                                   'category': 'Seasons', 'method': 'image',
-                                   'slides': {
-                                               1 : {'name': 'Fall', 'months': [9,10,11], 'path': 'Seasons/Fall'},
-                                               2 : {'name': 'Winter', 'months': [12,1,2], 'path': 'Seasons/Winter'},
-                                               3 : {'name': 'Spring', 'months': [3,4,5], 'path': 'Seasons/Spring'},
-                                               4 : {'name': 'Summer', 'months': [6,7,8], 'path': 'Seasons/Summer'}
-                                               }
-                                   }
-                               }
+                            #    2: {
+                            #        'category': 'Seasons', 'method': 'image',
+                            #        'slides': {
+                            #                    1 : {'name': 'Fall', 'months': [9,10,11], 'path': 'Seasons/Fall'},
+                            #                    2 : {'name': 'Winter', 'months': [12,1,2], 'path': 'Seasons/Winter'},
+                            #                    3 : {'name': 'Spring', 'months': [3,4,5], 'path': 'Seasons/Spring'},
+                            #                    4 : {'name': 'Summer', 'months': [6,7,8], 'path': 'Seasons/Summer'}
+                            #                    }
+                            #        }
+                            #    }
         
         self.eligible_slides = self.group_static
+        print(self.group_static)
         self.black_path = os.path.join(self.base_dir, 'Static', 'black1280.png')
         
         #Weather API
@@ -92,6 +99,16 @@ class SlideShowApp(object):
                803 : 'LightClouds', 
                804 : 'OverCast'
                }
+
+        #Advertisement API
+        self.advertisement_last_update = None
+        self.advertisement_update_frequency = datetime.timedelta(seconds=3600)
+        self.advertisement_cache = None
+        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId')  #replace 77034 with your zip code
+        self.access_token = None
+        self.login()
+        self.dir = os.path.dirname(os.path.abspath(__file__))
+
         
     def toggle_fullscreen(self, event=None):
         self.state = not self.state
@@ -104,7 +121,11 @@ class SlideShowApp(object):
     
     def callback(self):
         get_image()
-        
+
+    def login(self):
+        response = requests.post('http://54.255.190.93/api/v1/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
+        self.access_token = response.json().get('token')
+    
     def json_request(self, method='GET', path=None, body=None):
         connection = httplib2.Http()
         response, content = connection.request(
@@ -113,7 +134,6 @@ class SlideShowApp(object):
                                                headers = {'Content-Type': 'application/json; charset=UTF-8'},
                                                body = body,
                                                )
-        
         return json.loads(content.decode())
         
     def fetch_weather(self):
@@ -147,18 +167,47 @@ class SlideShowApp(object):
                                   }
             print('updating weather cache at', self.weather_last_update)
             print(self.weather_cache)
+
+            
+    def fetch_advertisement(self):
+        result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
+        # print(result.json())
+        for advertisement in result.json():
+            urllib.request.urlretrieve(advertisement.get('url'),  self.dir + "/Images/cache/" + advertisement.get('title'))
         
+            # https://adtech-s3.s3.amazonaws.com/advertisements/Screen%Shot%2019-08-05%at%6.35.29%PM.png
+            # real url: 'https://adtech-s3.s3.amazonaws.com/advertisements/Screen Shot 2019-08-05 at 6.35.29 PM.png'
+            # browser url: https://adtech-s3.s3.amazonaws.com/advertisements/Screen%20Shot%202019-08-05%20at%206.35.29%20PM.png
+
+
+    def update_advertisement(self):     # Update advertisement by reflecting/removing deleted ads in Images/cache
+        ad_list = []
+        result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
+        for ad in result.json():
+            if ad not in ad_list:
+                ad_list.append(ad.get('title'))
+        # print("Ad list: ", ad_list)
+        cache_dir = self.dir +'/Images/cache/'
+        cache_files = os.listdir(cache_dir)
+
+        for file in cache_files:
+            if file not in ad_list:
+                print(file)
+                os.remove(cache_dir+file)
+
+
     def update_eligible_slides(self):        
         #reset eligible to default
         self.eligible_slides = self.group_static
         #filter seasonal and daily slides
-        counter = 1
-        for k,v in self.group_seasonal.items():
-            for x,y in v['slides'].items():                
-                if self.current_date.month in y['months']:
-                    self.eligible_slides[4]['slides'][counter] = y
-                    counter += 1        
+        # counter = 1
+        # for k,v in self.group_seasonal.items():
+        #     for x,y in v['slides'].items():                
+        #         if self.current_date.month in y['months']:
+        #             self.eligible_slides[4]['slides'][counter] = y
+        #             counter += 1        
         
+
     def prepare_slide(self):            
         #pick a group  
         group = random.choice(list(self.eligible_slides))
@@ -186,7 +235,8 @@ class SlideShowApp(object):
             self.update_eligible_slides()
             
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
-            self.fetch_weather()
+            self.fetch_advertisement()
+            self.update_advertisement()
             
         self.prepare_slide()
         self.tk.after(5000, self.slideshow)    
@@ -194,6 +244,7 @@ class SlideShowApp(object):
     def get_image(self, path):
         #global tkpi        
         image = Image.open(path)
+        image = image.resize((self.tk.winfo_screenwidth(), self.tk.winfo_screenheight()))
         self.tk.geometry('%dx%d' % (image.size[0], image.size[1]))
         self.tkpi = ImageTk.PhotoImage(image)
         
