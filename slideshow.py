@@ -235,7 +235,7 @@ class SlideShowApp(object):
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
-            path = os.path.join(self.base_dir, slide_full['path'])
+            path = self.dir +'/Images/cache/'
             image = random.choice(os.listdir(path))
             full_path = os.path.join(path, image)
             self.get_image(full_path)
