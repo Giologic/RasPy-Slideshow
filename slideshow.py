@@ -110,7 +110,7 @@ class SlideShowApp(object):
         self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId')  #replace 77034 with your zip code
         self.dir = os.path.dirname(os.path.abspath(__file__))
         if not os.path.exists(self.dir +'/Images/cache/'):
-            os.mkdirs(self.dir +'/Images/cache/')
+            os.makedirs(self.dir +'/Images/cache/')
 
     def toggle_fullscreen(self, event=None):
         self.state = not self.state
