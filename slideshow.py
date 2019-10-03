@@ -107,6 +107,7 @@ class SlideShowApp(object):
         self.advertisement_cache = None
         self.access_token = None
         self.connected = False              # flag for internet connection
+        self.pre_registered = False         # validation flag  if .env file already has deviceid and deviceName
         self.device_registered = False      # flag for registered status
         self.ad_index = 0
         self.login()
@@ -162,6 +163,12 @@ class SlideShowApp(object):
 
 
     def register_device(self):
+        if config('deviceId', default=None) and config('deviceName', default=None):   # Check if .env file has deviceId and deviceName
+            self.pre_registered = True 
+            print("Preregistered!")
+        else:
+            self.pre_registered = False
+
         try:
             response = requests.post('http://RegisterDeviceEndpoint', data={'deviceId': config('deviceId', cast=str), 'deviceName': config('deviceName', cast=str)})
             if response.status_code == 200:     # Register successful!
@@ -184,6 +191,12 @@ class SlideShowApp(object):
 
 
     def test_register(self): # Deprecated
+        if config('deviceId', default=None) and config('deviceName', default=None):   # Check if .env file has deviceId and deviceName
+            self.pre_registered = True 
+            print("Preregistered!")
+        else:
+            self.pre_registered = False
+
         try:
             response = requests.get('http://54.255.190.93/api/v1/devices', headers = {'Authorization':self.access_token})
             # print(response.text)
@@ -198,6 +211,7 @@ class SlideShowApp(object):
                     self.device_registered = True
         except Exception as e:
             print(e)
+            print("No internet")
 
         if not self.device_registered:
             print("Registering device..")
@@ -254,6 +268,7 @@ class SlideShowApp(object):
 
 
     def fetch_advertisement(self):
+        print("Fetching Ad")
         try:
             result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
             print(result.json())
@@ -313,11 +328,17 @@ class SlideShowApp(object):
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
-            if not self.access_token and not self.device_registered and not self.connected:        # Device is not registered and has no WiFi (First time - One time Setup)
+
+            if not self.access_token and not self.device_registered and not self.connected and not self.pre_registered:     # Device is not registered and has no WiFi (First time - One time Setup)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
-                
+
+            elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       # Device is proabably registered but there's no internet from the start.
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'no_internet.png')       
+                self.get_image(full_path)            
+
             elif not self.access_token and self.connected:              # Login failed but has internet (Wrong login credentials)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'invalid_login.png')
@@ -331,6 +352,7 @@ class SlideShowApp(object):
             elif self.device_registered and not self.connected:          # Device is registered but has no Internet (Functional but then suddenly disconnected)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_internet.png')
+                # full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)    
  
             elif len(os.listdir(path)):                                 # Device is registered and has wifi (Normal operation)
@@ -368,18 +390,11 @@ class SlideShowApp(object):
             self.update_eligible_slides()
 
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
-            if self.connected and self.device_registered:
+            print("Registered: ", self.device_registered, ", Connected: ", self.connected)
+            if self.device_registered:
                 self.fetch_advertisement()
                 self.update_advertisement()
-            else:
-                print("Device is not connected or registered.")
-                #TODO: Ping if device is reconnected to internet based on fetch_advertisement()'s try catch
-                # if ping success:
-                #     self.connected = True
-                # else:
-                #     self.connected = False
 
-        print("Registered: ", self.device_registered, ", Connected: ", self.connected)
         self.prepare_slide()
         self.tk.after(5000, self.slideshow) 
 
