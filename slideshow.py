@@ -3,6 +3,7 @@ import os, random, sys
 from os import path
 import os.path
 from os.path import abspath, dirname
+import shutil
 import json, httplib2
 import urllib.request
 import datetime
@@ -105,43 +106,108 @@ class SlideShowApp(object):
         self.advertisement_update_frequency = datetime.timedelta(seconds=3600)
         self.advertisement_cache = None
         self.access_token = None
+        self.connected = False              # flag for internet connection
+        self.device_registered = False      # flag for registered status
+        self.ad_index = 0
         self.login()
+        self.test_register()
         # self.register_device()
-        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId')  #replace 77034 with your zip code
+        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId', default=None, cast=str)  #replace 77034 with your zip code
         self.dir = os.path.dirname(os.path.abspath(__file__))
-        if not os.path.exists(self.dir +'/Images/cache/'):
-            os.makedirs(self.dir +'/Images/cache/')
+        self.cache_dir = self.dir + '/Images/cache/'
+        ## Clear cache folder on startup
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.dir +'/Images/cache'):
+                os.remove(self.cache_dir+file)
+        else:
+            os.makedirs(self.cache_dir)
+
 
     def toggle_fullscreen(self, event=None):
         self.state = not self.state
         self.tk.attributes('-fullscreen', self.state)
+
 
     def end_fullscreen(self, event=None):
         self.state = False
         self.tk.attributes('-fullscreen', False)
         return 'break'
 
+
     def callback(self):
         get_image()
 
-    def register_device(self):
-        with open('.env', 'r') as f:
-            if 'deviceId' in f.read():
-                print("Registering device..")
-                #TODO: POST to Gio's Register Device Endpoint, Append DeviceId to .env
-                # response = requests.POST()
-                # deviceId = response.json().get('deviceId')
-                # with open('testing.txt', 'a') as f:
-                #     f.write("\ndeviceId=")
-                #     f.write(deviceId)
-
-            else:
-                print("Device already registered.")
-
 
     def login(self):
-        response = requests.post('http://54.255.190.93/api/v1/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
-        self.access_token = response.json().get('token')
+        try:
+            response = requests.post('http://54.255.190.93/api/v1/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
+            if response.status_code == 200:     # Success
+                self.access_token = response.json().get('token')
+            elif response.status_code == 404:   # User not found
+                print(response.text)
+                print("Login error - Must erase env file")
+            elif response.status_code == 422:   # Invalid password
+                print(response.text)
+                print("Login error - Must erase env file")
+            elif response.status_code == 400:   # Bad Data
+                print(response.text)
+                print("Login error - Bad data") 
+
+            self.connected = True 
+
+        except Exception as e:
+            print(e)
+            print("Login failed. check Internet?")
+            self.connected = False
+
+
+    def register_device(self):
+        try:
+            response = requests.post('http://RegisterDeviceEndpoint', data={'deviceId': config('deviceId', cast=str), 'deviceName': config('deviceName', cast=str)})
+            if response.status_code == 200:     # Register successful!
+                print("Registered Successfully!")
+                self.device_registered = True
+            elif response.status_code == 302:   # Device already exits
+                print("Device already registered!")
+                self.device_registered = True
+            elif response.status_code == 422:   # Bad Data
+                print("Register - Bad data")
+                self.device_registered = False
+                # Erase something from .env file?
+            
+            self.connected = True
+        
+        except Exception as e:
+            print(e)
+            print("Register failed. check Internet?")
+            self.connected = False
+
+
+    def test_register(self): # Deprecated
+        try:
+            response = requests.get('http://54.255.190.93/api/v1/devices', headers = {'Authorization':self.access_token})
+            # print(response.text)
+            #TODO: Or simply catch request.status==### if device is already registered before setting self.device_registered flag to True
+            device_list = response.json().get("devices")
+            print(device_list)
+            device_id = config('deviceId', cast=str, default=None)
+            for device in device_list:      # Check if the deviceId is already registered/existing in the database
+                if device_id in device.values():       
+                    print(device)
+                    print("Device already registered.")
+                    self.device_registered = True
+        except Exception as e:
+            print(e)
+
+        if not self.device_registered:
+            print("Registering device..")
+            #TODO: Register and Try Catch exeptions before setting self.device_registered flag to True.
+            # if Register_response.status == 200:
+            #   self.device_registered = True
+            # else:
+            #TODO: Catch wrong credentials (ex: wrong email and password) and other scenarios before setting self.device_registered flag to Flase
+            #   self.device_registered = False
+
 
     def json_request(self, method='GET', path=None, body=None):
         connection = httplib2.Http()
@@ -153,7 +219,8 @@ class SlideShowApp(object):
                                                )
         return json.loads(content.decode())
 
-    def fetch_weather(self):
+
+    def fetch_weather(self):    # Unused
         result = self.json_request(path=self.weather_api_path)
 
         #get temperature from "main" set
@@ -187,30 +254,39 @@ class SlideShowApp(object):
 
 
     def fetch_advertisement(self):
-        result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
-        # print(result.json())
-        for advertisement in result.json():
-            urllib.request.urlretrieve(advertisement.get('url'),  self.dir + "/Images/cache/" + advertisement.get('title'))
-
-            # https://adtech-s3.s3.amazonaws.com/advertisements/Screen%Shot%2019-08-05%at%6.35.29%PM.png
-            # real url: 'https://adtech-s3.s3.amazonaws.com/advertisements/Screen Shot 2019-08-05 at 6.35.29 PM.png'
-            # browser url: https://adtech-s3.s3.amazonaws.com/advertisements/Screen%20Shot%202019-08-05%20at%206.35.29%20PM.png
-
+        try:
+            result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
+            print(result.json())
+            for advertisement in result.json():
+                urllib.request.urlretrieve(advertisement.get('url'),  self.cache_dir + advertisement.get('title'))
+        
+            self.connected = True
+        except Exception as e:
+            print("Fetch advertisement Error")
+            print(e)
+            self.connected = False
 
     def update_advertisement(self):     # Update advertisement by reflecting/removing deleted ads in Images/cache
-        ad_list = []
-        result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
-        for ad in result.json():
-            if ad not in ad_list:
-                ad_list.append(ad.get('title'))
-        # print("Ad list: ", ad_list)
-        cache_dir = self.dir +'/Images/cache/'
-        cache_files = os.listdir(cache_dir)
+        try:
+            ad_list = []
+            result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
+            for ad in result.json():
+                if ad not in ad_list:
+                    ad_list.append(ad.get('title'))
+            # print("Ad list: ", ad_list)
+            cache_files = os.listdir(self.cache_dir)
 
-        for file in cache_files:
-            if file not in ad_list:
-                print(file)
-                os.remove(cache_dir+file)
+            for file in cache_files:
+                if file not in ad_list:
+                    print(file)
+                    os.remove(self.cache_dir+file)
+
+            self.connected = True
+
+        except Exception as e:
+            print("Fetch advertisement Error")
+            print(e)
+            self.connected = False
 
 
     def update_eligible_slides(self):
@@ -231,18 +307,58 @@ class SlideShowApp(object):
         #TODO check for slide group method
         slide = random.choice(list(self.eligible_slides[group]['slides']))
         slide_full = self.eligible_slides[group]['slides'][slide]
+        path = self.cache_dir
 
         if self.eligible_slides[group]['method'] == 'draw':
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
-            path = self.dir +'/Images/cache/'
-            image = random.choice(os.listdir(path))
-            full_path = os.path.join(path, image)
-            self.get_image(full_path)
+            if not self.access_token and not self.device_registered and not self.connected:        # Device is not registered and has no WiFi (First time - One time Setup)
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'setup_instructions.png')
+                self.get_image(full_path)
+                
+            elif not self.access_token and self.connected:              # Login failed but has internet (Wrong login credentials)
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'invalid_login.png')
+                self.get_image(full_path)
+
+            elif not self.device_registered and self.connected:          # Device is not registered but has internet (Login success, but failed to register)
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'not_registered.png')
+                self.get_image(full_path)
+
+            elif self.device_registered and not self.connected:          # Device is registered but has no Internet (Functional but then suddenly disconnected)
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'no_internet.png')
+                self.get_image(full_path)    
+ 
+            elif len(os.listdir(path)):                                 # Device is registered and has wifi (Normal operation)
+                ## Selecting images/ads randomly
+                # image = random.choice(os.listdir(path))
+                # print("Image :", image)
+                # full_path = os.path.join(path, image)
+                # self.get_image(full_path)
+        
+                ## (Iterate) Selecting over adlist sequentially
+                ad_list = os.listdir(path)
+                image = ad_list[self.ad_index]
+                print("Index : ", self.ad_index, "Image :", image)
+                if self.ad_index < len(ad_list)-1:
+                    self.ad_index += 1
+                else:
+                    self.ad_index = 0
+                full_path = os.path.join(path, image)
+                self.get_image(full_path)
+            else:
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'black1280.png')
+                self.get_image(full_path)
+
 
     def draw_rectangle(self):
         pass
+
 
     def slideshow(self):
         now = datetime.date.today()
@@ -252,11 +368,21 @@ class SlideShowApp(object):
             self.update_eligible_slides()
 
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
-            self.fetch_advertisement()
-            self.update_advertisement()
+            if self.connected and self.device_registered:
+                self.fetch_advertisement()
+                self.update_advertisement()
+            else:
+                print("Device is not connected or registered.")
+                #TODO: Ping if device is reconnected to internet based on fetch_advertisement()'s try catch
+                # if ping success:
+                #     self.connected = True
+                # else:
+                #     self.connected = False
 
+        print("Registered: ", self.device_registered, ", Connected: ", self.connected)
         self.prepare_slide()
-        self.tk.after(5000, self.slideshow)
+        self.tk.after(5000, self.slideshow) 
+
 
     def get_image(self, path):
         #global tkpi
@@ -267,6 +393,7 @@ class SlideShowApp(object):
 
         label = tk.Label(self.tk, image=self.tkpi)
         label.place(x=0,y=0,width=image.size[0], height=image.size[1])
+
 
     def drawTOD(self):
         #set bg image to black static
@@ -294,7 +421,8 @@ class SlideShowApp(object):
         label = tk.Label(self.tk, text=full_tod, width=0, height=0, fg="#ffffff", bg="#000000", font=("Rouge", 78))
         label.place(relx=0.5, rely=0.7, anchor="center")
 
-    def drawWeather(self):
+
+    def drawWeather(self):  # Unused
         if self.weather_cache:
             #Set background image if available
             if 'background' in self.weather_cache:
