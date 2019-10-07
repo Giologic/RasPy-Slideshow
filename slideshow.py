@@ -11,6 +11,8 @@ from PIL import Image, ImageTk
 from decouple import config
 import requests
 
+ADTECH_ENDPOINT = "http://54.255.190.93/api/v1"
+
 class SlideShowApp(object):
     def __init__(self):
         self.tk = tk.Tk()
@@ -109,11 +111,13 @@ class SlideShowApp(object):
         self.connected = False              # flag for internet connection
         self.pre_registered = False         # validation flag  if .env file already has deviceid and deviceName
         self.device_registered = False      # flag for registered status
+        self.playlist_associated = False    # Device has playlist associated with it
+        self.playlist_empty = False          # Device has playlist associated with it, but it's empty. 
         self.ad_index = 0
         self.login()
-        self.test_register()
-        # self.register_device()
-        self.advertisement_api_path = 'http://54.255.190.93/api/v1/advertisements/device/' + config('deviceId', default=None, cast=str)  #replace 77034 with your zip code
+        # self.test_register()
+        self.register_device()
+        self.advertisement_api_path = ADTECH_ENDPOINT + '/advertisements/device/' + config('deviceId', default=None, cast=str)  #replace 77034 with your zip code
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.cache_dir = self.dir + '/Images/cache/'
         ## Clear cache folder on startup
@@ -141,15 +145,16 @@ class SlideShowApp(object):
 
     def login(self):
         try:
-            response = requests.post('http://54.255.190.93/api/v1/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
+            response = requests.post(ADTECH_ENDPOINT + '/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
+            print("Login response: ", response.text)
             if response.status_code == 200:     # Success
                 self.access_token = response.json().get('token')
             elif response.status_code == 404:   # User not found
                 print(response.text)
-                print("Login error - Must erase env file")
+                print("Login error - User not found")
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
-                print("Login error - Must erase env file")
+                print("Login error - Invalid password")
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
@@ -165,62 +170,40 @@ class SlideShowApp(object):
     def register_device(self):
         if config('deviceId', default=None) and config('deviceName', default=None):   # Check if .env file has deviceId and deviceName
             self.pre_registered = True 
-            print("Preregistered!")
+            print("Pre-registered!")
         else:
             self.pre_registered = False
 
         try:
-            response = requests.post('http://RegisterDeviceEndpoint', data={'deviceId': config('deviceId', cast=str), 'deviceName': config('deviceName', cast=str)})
-            if response.status_code == 200:     # Register successful!
+            response = requests.post(
+                ADTECH_ENDPOINT + '/devices', 
+                data={'deviceUid': config('deviceUid', cast=str), 
+                    'deviceName': config('deviceName', cast=str)
+                }, 
+                headers = {'Authorization':self.access_token}
+            )
+            print("Register response: ", response.status_code, response.text)
+
+            if response.status_code == 201:     # Register successful!
                 print("Registered Successfully!")
                 self.device_registered = True
-            elif response.status_code == 302:   # Device already exits
+            elif response.status_code == 302:   # Device already exists
                 print("Device already registered!")
                 self.device_registered = True
             elif response.status_code == 422:   # Bad Data
                 print("Register - Bad data")
+                if os.path.exists('.env'):
+                    os.remove('.env')
+                    print('.env file deleted')
                 self.device_registered = False
-                # Erase something from .env file?
             
             self.connected = True
         
         except Exception as e:
             print(e)
-            print("Register failed. check Internet?")
+            print("Register Device Error: Register failed. Check Internet?")
+            self.device_registered = False
             self.connected = False
-
-
-    def test_register(self): # Deprecated
-        if config('deviceId', default=None) and config('deviceName', default=None):   # Check if .env file has deviceId and deviceName
-            self.pre_registered = True 
-            print("Preregistered!")
-        else:
-            self.pre_registered = False
-
-        try:
-            response = requests.get('http://54.255.190.93/api/v1/devices', headers = {'Authorization':self.access_token})
-            # print(response.text)
-            #TODO: Or simply catch request.status==### if device is already registered before setting self.device_registered flag to True
-            device_list = response.json().get("devices")
-            print(device_list)
-            device_id = config('deviceId', cast=str, default=None)
-            for device in device_list:      # Check if the deviceId is already registered/existing in the database
-                if device_id in device.values():       
-                    print(device)
-                    print("Device already registered.")
-                    self.device_registered = True
-        except Exception as e:
-            print(e)
-            print("No internet")
-
-        if not self.device_registered:
-            print("Registering device..")
-            #TODO: Register and Try Catch exeptions before setting self.device_registered flag to True.
-            # if Register_response.status == 200:
-            #   self.device_registered = True
-            # else:
-            #TODO: Catch wrong credentials (ex: wrong email and password) and other scenarios before setting self.device_registered flag to Flase
-            #   self.device_registered = False
 
 
     def json_request(self, method='GET', path=None, body=None):
@@ -268,38 +251,96 @@ class SlideShowApp(object):
 
 
     def fetch_advertisement(self):
-        print("Fetching Ad")
+        print("Fetching Ads")
         try:
-            result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
-            print(result.json())
-            for advertisement in result.json():
-                urllib.request.urlretrieve(advertisement.get('url'),  self.cache_dir + advertisement.get('title'))
-        
+            result = requests.get(
+                ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
+                headers = {'Authorization':self.access_token}
+            )
+            print("Fetch ads Response: ", result.status_code, result.json())
+            #TODO: Catch empty playlists and unassociated devices properly
+            if result.status_code == 200:
+                print("Parsing..")
+                try:
+                    # Old parsing
+                    # for advertisement in result.json():
+                    #     # urllib.request.urlretrieve(advertisement.get('url'),  self.cache_dir + advertisement.get('title'))
+                    # New parsing
+                    for advertisement in result.json().get('adverturls'):
+                        title = str(advertisement)[50:]
+                        urllib.request.urlretrieve(advertisement,  self.cache_dir + title)
+
+                except Exception as e:
+                    # print(e)
+                    # print("Empty list.")
+                    print("pass1")
+                    pass
+
+                self.playlist_associated = True
+
+            elif result.status_code == 404:
+                print("No playlist associated with this device yet.")
+                self.playlist_associated = False
+
             self.connected = True
+        
         except Exception as e:
             print("Fetch advertisement Error")
             print(e)
             self.connected = False
 
     def update_advertisement(self):     # Update advertisement by reflecting/removing deleted ads in Images/cache
+        print("Updating advertisements")
         try:
             ad_list = []
-            result = requests.get(self.advertisement_api_path, headers = {'Authorization':self.access_token})
-            for ad in result.json():
-                if ad not in ad_list:
-                    ad_list.append(ad.get('title'))
-            # print("Ad list: ", ad_list)
-            cache_files = os.listdir(self.cache_dir)
+            result = requests.get(
+                ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
+                headers = {'Authorization':self.access_token}
+            )
+            print("Updating ads response:", result.status_code, result.text)
 
-            for file in cache_files:
-                if file not in ad_list:
-                    print(file)
-                    os.remove(self.cache_dir+file)
+            if result.status_code == 200:
+                print("A playlist is associated with this device.")
+                
+                print("Checking playlist...")
+                try:
+                    # Old parsing
+                    # for ad in result.json():
+                    #     if ad not in ad_list:
+                    #         ad_list.append(ad.get('title', None))
+                    # New parsing
+                    for ad in result.json().get('adverturls'):
+                        if ad not in ad_list:
+                            title = str(ad)[50:]
+                            ad_list.append(title)
+                except Exception as e:
+                    print(e)
+                    print("Playlist did not change. Nothing to delete")
+
+                print("Ad list: ", ad_list)
+                cache_files = os.listdir(self.cache_dir)
+
+                for file in cache_files:
+                    if file not in ad_list:
+                        print(file)
+                        os.remove(self.cache_dir+file)
+                self.playlist_associated = True
+
+                if ad_list:     # Check if ad_list is empty
+                    print("Playlist has", len(ad_list), "ads.")
+                    self.playlist_empty = False
+                else:
+                    print("Playlist is empty.")
+                    self.playlist_empty = True
+
+            elif result.status_code == 404:
+                print("No playlist associated with this device yet.")
+                self.playlist_associated = False
 
             self.connected = True
 
         except Exception as e:
-            print("Fetch advertisement Error")
+            print("Update Advertisement Error")
             print(e)
             self.connected = False
 
@@ -349,6 +390,17 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'not_registered.png')
                 self.get_image(full_path)
 
+            #TODO:
+            elif not self.playlist_associated and self.connected:      # No playlist associated with this device
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'no_playlist.png')
+                self.get_image(full_path)
+
+            elif self.playlist_associated and self.playlist_empty and self.connected:       # Playlist is associated with the device but it's empty         
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'empty_playlist.png')
+                self.get_image(full_path)
+
             elif self.device_registered and not self.connected:          # Device is registered but has no Internet (Functional but then suddenly disconnected)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_internet.png')
@@ -357,21 +409,22 @@ class SlideShowApp(object):
  
             elif len(os.listdir(path)):                                 # Device is registered and has wifi (Normal operation)
                 ## Selecting images/ads randomly
-                # image = random.choice(os.listdir(path))
-                # print("Image :", image)
-                # full_path = os.path.join(path, image)
-                # self.get_image(full_path)
-        
-                ## (Iterate) Selecting over adlist sequentially
-                ad_list = os.listdir(path)
-                image = ad_list[self.ad_index]
-                print("Index : ", self.ad_index, "Image :", image)
-                if self.ad_index < len(ad_list)-1:
-                    self.ad_index += 1
-                else:
-                    self.ad_index = 0
+                image = random.choice(os.listdir(path))
+                print("Image :", image)
                 full_path = os.path.join(path, image)
                 self.get_image(full_path)
+        
+                ## (Iterate) Selecting over adlist sequentially
+                # ad_list = os.listdir(path)
+                # image = ad_list[self.ad_index]
+                # print("Index : ", self.ad_index, "Image :", image)
+                # if self.ad_index < len(ad_list)-1:
+                #     self.ad_index += 1
+                # else:
+                #     self.ad_index = 0
+                # full_path = os.path.join(path, image)
+                # self.get_image(full_path)
+
             else:
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'black1280.png')
