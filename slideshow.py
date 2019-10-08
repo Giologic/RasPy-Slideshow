@@ -380,16 +380,18 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
 
-            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     # Device is not registered and has no WiFi (First time - One time Setup)
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'setup_instructions.png')
-                self.get_image(full_path)
-
             #TODO:
             elif not self.playlist_associated and self.connected:      # No playlist associated with this device
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_playlist.png')
+                self.get_image(full_path)   
+                
+
+            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     # Device is not registered but has WiFi (Wrong login credentials)
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
+
 
             elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       # Device is proabably registered but there's no internet from the start.
                 path = self.dir + '/Images/Static/'
