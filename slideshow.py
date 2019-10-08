@@ -375,10 +375,6 @@ class SlideShowApp(object):
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
-            print("access token: ", not self.access_token)
-            print("device registered? ", not self.device_registered)
-            print("device connected? ", self.connected)
-            print("device pre-registered?", self.pre_registered)
             if not self.access_token and not self.device_registered and not self.connected:     # Device is not registered and has no WiFi (First time - One time Setup)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
