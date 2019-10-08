@@ -383,7 +383,7 @@ class SlideShowApp(object):
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
             elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       
                 path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'black1280.png')       
+                full_path = os.path.join(path, 'no_internet.png')       
                 self.get_image(full_path)            
 
 
