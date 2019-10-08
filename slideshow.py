@@ -380,9 +380,15 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
 
-            elif not self.access_token and not self.device_registered and self.connected:     # Device is not registered and has no WiFi (First time - One time Setup)
+            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     # Device is not registered and has no WiFi (First time - One time Setup)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
+                self.get_image(full_path)
+
+            #TODO:
+            elif not self.playlist_associated and self.connected:      # No playlist associated with this device
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'no_playlist.png')
                 self.get_image(full_path)
 
             elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       # Device is proabably registered but there's no internet from the start.
@@ -398,12 +404,6 @@ class SlideShowApp(object):
             elif not self.device_registered and not self.access_token and self.connected and self.pre_registered:          # Device is not registered but has internet (Login success, but failed to register)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'not_registered.png')
-                self.get_image(full_path)
-
-            #TODO:
-            elif not self.playlist_associated and self.connected:      # No playlist associated with this device
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_playlist.png')
                 self.get_image(full_path)
 
             elif self.playlist_associated and self.playlist_empty and self.connected:       # Playlist is associated with the device but it's empty         
