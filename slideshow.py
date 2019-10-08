@@ -444,9 +444,12 @@ class SlideShowApp(object):
 
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
             print("Registered: ", self.device_registered, ", Connected: ", self.connected)
-            if self.device_registered:
-                self.fetch_advertisement()
-                self.update_advertisement()
+            if not self.access_token:   # Self-restoring
+                self.login()
+                self.register_device()
+
+            self.fetch_advertisement()
+            self.update_advertisement()
 
         self.prepare_slide()
         self.tk.after(5000, self.slideshow) 
