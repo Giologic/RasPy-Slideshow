@@ -110,6 +110,7 @@ class SlideShowApp(object):
         self.access_token = None
         self.connected = False              # flag for internet connection
         self.pre_registered = False         # validation flag  if .env file already has deviceid and deviceName
+        self.pre_login = False              # validation flag  if .env file already has email and password
         self.device_registered = False      # flag for registered status
         self.playlist_associated = False    # Device has playlist associated with it
         self.playlist_empty = False          # Device has playlist associated with it, but it's empty. 
@@ -173,6 +174,11 @@ class SlideShowApp(object):
             print("Pre-registered!")
         else:
             self.pre_registered = False
+
+        if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
+            self.pre_login = True 
+        else:
+            self.pre_login = False
 
         try:
             response = requests.post(
@@ -369,8 +375,16 @@ class SlideShowApp(object):
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
+            print("access token: ", not self.access_token)
+            print("device registered? ", not self.device_registered)
+            print("device connected? ", self.connected)
+            print("device pre-registered?", self.pre_registered)
+            if not self.access_token and not self.device_registered and not self.connected:     # Device is not registered and has no WiFi (First time - One time Setup)
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'setup_instructions.png')
+                self.get_image(full_path)
 
-            if not self.access_token and not self.device_registered and not self.connected and not self.pre_registered:     # Device is not registered and has no WiFi (First time - One time Setup)
+            elif not self.access_token and not self.device_registered and self.connected:     # Device is not registered and has no WiFi (First time - One time Setup)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
@@ -380,12 +394,12 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'no_internet.png')       
                 self.get_image(full_path)            
 
-            elif not self.access_token and self.connected:              # Login failed but has internet (Wrong login credentials)
+            elif not self.access_token and self.connected and self.pre_login:              # Login failed but has internet (Wrong login credentials)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'invalid_login.png')
                 self.get_image(full_path)
 
-            elif not self.device_registered and self.connected:          # Device is not registered but has internet (Login success, but failed to register)
+            elif not self.device_registered and not self.access_token and self.connected and self.pre_registered:          # Device is not registered but has internet (Login success, but failed to register)
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'not_registered.png')
                 self.get_image(full_path)
