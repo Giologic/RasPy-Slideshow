@@ -118,7 +118,6 @@ class SlideShowApp(object):
         self.login()
         # self.test_register()
         self.register_device()
-        self.advertisement_api_path = ADTECH_ENDPOINT + '/advertisements/device/' + config('deviceId', default=None, cast=str)  #replace 77034 with your zip code
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.cache_dir = self.dir + '/Images/cache/'
         ## Clear cache folder on startup
@@ -169,7 +168,7 @@ class SlideShowApp(object):
 
 
     def register_device(self):
-        if config('deviceId', default=None) and config('deviceName', default=None):   # Check if .env file has deviceId and deviceName
+        if config('deviceUid', default=None) and config('deviceName', default=None):   # Check if .env file has deviceId and deviceName
             self.pre_registered = True 
             print("Pre-registered!")
         else:
@@ -381,6 +380,13 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
 
+            # Device is probably registered but there's no internet from the start. (2nd Time onwards)
+            elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'black1280.png')       
+                self.get_image(full_path)            
+
+
             #TODO: # Device is not registered but has WiFi (Wrong login credentials or Register error)               
             elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     
                 path = self.dir + '/Images/Static/'
@@ -417,19 +423,6 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'no_internet.png')
                 # full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)    
-
-            # Device is probably registered but there's no internet from the start. (2nd Time onwards)
-            elif not self.access_token and not self.device_registered and not self.connected or self.pre_registered:       
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'black1280.png')       
-                self.get_image(full_path)            
-
-            #TODO: Device was transferred and had to change wifi network:
-            elif not self.connected:
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_internet.png')
-                self.get_image(full_path)
-
 
             # Device is registered and has both wifi and playlist with ads (Normal operation)
             elif len(os.listdir(path)):                                 
