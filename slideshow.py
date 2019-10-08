@@ -375,51 +375,57 @@ class SlideShowApp(object):
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
-            if not self.access_token and not self.device_registered and not self.connected:     # Device is not registered and has no WiFi (First time - One time Setup)
+            # Device is probably registered but there's no internet from the start. (2nd Time onwards)
+            if not self.access_token and not self.device_registered and not self.connected or self.pre_registered:       
                 path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'setup_instructions.png')
-                self.get_image(full_path)
-
-            #TODO:
-            elif not self.playlist_associated and self.connected:      # No playlist associated with this device
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_playlist.png')
-                self.get_image(full_path)   
-                
-
-            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     # Device is not registered but has WiFi (Wrong login credentials)
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'setup_instructions.png')
-                self.get_image(full_path)
-
-
-            elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       # Device is proabably registered but there's no internet from the start.
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_internet.png')       
+                full_path = os.path.join(path, 'black1280.png')       
                 self.get_image(full_path)            
 
-            elif not self.access_token and self.connected and self.pre_login:              # Login failed but has internet (Wrong login credentials)
+            # Device is not registered and has no WiFi (First time - One time Setup (no .env file))
+            elif not self.access_token and not self.device_registered and not self.connected:     
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'setup_instructions.png')
+                self.get_image(full_path)
+
+            #TODO: # Device is not registered but has WiFi (Wrong login credentials)               
+            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'setup_instructions.png')
+                self.get_image(full_path)
+
+            # Login failed but has internet (Wrong login credentials)
+            elif not self.access_token and self.connected and self.pre_login:              
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'invalid_login.png')
                 self.get_image(full_path)
 
-            elif not self.device_registered and not self.access_token and self.connected and self.pre_registered:          # Device is not registered but has internet (Login success, but failed to register)
+            # Device is not registered but has internet (Login success, but failed to register)
+            elif not self.device_registered and not self.access_token and self.connected and self.pre_registered:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'not_registered.png')
                 self.get_image(full_path)
 
-            elif self.playlist_associated and self.playlist_empty and self.connected:       # Playlist is associated with the device but it's empty         
+            # No playlist associated with this device
+            elif not self.playlist_associated and self.connected:      
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'no_playlist.png')
+                self.get_image(full_path)   
+
+            # Playlist is associated with the device but it's empty         
+            elif self.playlist_associated and self.playlist_empty and self.connected:       
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'empty_playlist.png')
                 self.get_image(full_path)
 
-            elif self.device_registered and not self.connected:          # Device is registered but has no Internet (Functional but then suddenly disconnected)
+            # Device is registered but has no Internet (Functional but then suddenly disconnected)
+            elif self.device_registered and not self.connected:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_internet.png')
                 # full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)    
  
-            elif len(os.listdir(path)):                                 # Device is registered and has wifi (Normal operation)
+            # Device is registered and has both wifi and playlist with ads (Normal operation)
+            elif len(os.listdir(path)):                                 
                 ## Selecting images/ads randomly
                 image = random.choice(os.listdir(path))
                 print("Image :", image)
@@ -437,7 +443,7 @@ class SlideShowApp(object):
                 # full_path = os.path.join(path, image)
                 # self.get_image(full_path)
 
-            else:
+            else:   # All else
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)
