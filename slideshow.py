@@ -409,21 +409,21 @@ class SlideShowApp(object):
  
             elif len(os.listdir(path)):                                 # Device is registered and has wifi (Normal operation)
                 ## Selecting images/ads randomly
-                # image = random.choice(os.listdir(path))
-                # print("Image :", image)
-                # full_path = os.path.join(path, image)
-                # self.get_image(full_path)
-        
-                ## (Iterate) Selecting over adlist sequentially
-                ad_list = os.listdir(path)
-                image = ad_list[self.ad_index]
-                print("Index : ", self.ad_index, "Image :", image)
-                if self.ad_index < len(ad_list)-1:
-                    self.ad_index += 1
-                else:
-                    self.ad_index = 0
+                image = random.choice(os.listdir(path))
+                print("Image :", image)
                 full_path = os.path.join(path, image)
                 self.get_image(full_path)
+        
+                ## (Iterate) Selecting over adlist sequentially
+                # ad_list = os.listdir(path)
+                # image = ad_list[self.ad_index]
+                # print("Index : ", self.ad_index, "Image :", image)
+                # if self.ad_index < len(ad_list)-1:
+                #     self.ad_index += 1
+                # else:
+                #     self.ad_index = 0
+                # full_path = os.path.join(path, image)
+                # self.get_image(full_path)
 
             else:
                 path = self.dir + '/Images/Static/'
