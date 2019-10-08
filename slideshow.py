@@ -380,10 +380,11 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
 
+            #TODO: New placeholder image for WiFi setup instructions (2nd time onwards, probably transferred to another place and have to change WiFi)
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
             elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       
                 path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_internet.png')       
+                full_path = os.path.join(path, 'no_internet_from_start.png')       
                 self.get_image(full_path)            
 
 
