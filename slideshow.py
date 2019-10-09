@@ -113,7 +113,7 @@ class SlideShowApp(object):
         self.pre_login = False              # validation flag  if .env file already has email and password
         self.device_registered = False      # flag for registered status
         self.playlist_associated = False    # Device has playlist associated with it
-        self.playlist_empty = False          # Device has playlist associated with it, but it's empty. 
+        self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
         self.ad_index = 0
         self.login()
         # self.test_register()
@@ -151,10 +151,18 @@ class SlideShowApp(object):
                 self.access_token = response.json().get('token')
             elif response.status_code == 404:   # User not found
                 print(response.text)
+                if os.path.exists('.env'):
+                    os.remove('.env')
+                    print('.env file deleted')
+
                 print("Login error - User not found")
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
                 print("Login error - Invalid password")
+                if os.path.exists('.env'):
+                    os.remove('.env')
+                    print('.env file deleted')
+
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
@@ -195,6 +203,7 @@ class SlideShowApp(object):
             elif response.status_code == 302:   # Device already exists
                 print("Device already registered!")
                 self.device_registered = True
+                #TODO: Check if device belongs to the user. Add invalid user validation
             elif response.status_code == 422:   # Bad Data
                 print("Register - Bad data")
                 if os.path.exists('.env'):
