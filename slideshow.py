@@ -166,6 +166,9 @@ class SlideShowApp(object):
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
+                if os.path.exists('.env'):
+                    os.remove('.env')
+                    print('.env file deleted')
 
             self.connected = True 
 
