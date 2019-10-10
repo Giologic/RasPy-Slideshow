@@ -183,11 +183,18 @@ class SlideShowApp(object):
             self.pre_registered = True 
             print("Pre-registered!")
         else:
+            if os.path.exists('.env'):
+                os.remove('.env')
+                print('.env file deleted')
             self.pre_registered = False
 
         if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
             self.pre_login = True 
         else:
+            if os.path.exists('.env'):
+                os.remove('.env')
+                print('.env file deleted')
+
             self.pre_login = False
 
         try:
@@ -392,6 +399,13 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
 
+            #TODO: # Device is not registered but has WiFi (Wrong login credentials or Register error)               
+            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     
+                path = self.dir + '/Images/Static/'
+                full_path = os.path.join(path, 'no_internet.png')
+                self.get_image(full_path)
+
+
             #TODO: New placeholder image for WiFi setup instructions (2nd time onwards, probably transferred to another place and have to change WiFi)
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
             elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       
@@ -399,12 +413,6 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'no_internet_from_start.png')       
                 self.get_image(full_path)            
 
-
-            #TODO: # Device is not registered but has WiFi (Wrong login credentials or Register error)               
-            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'setup_instructions.png')
-                self.get_image(full_path)
 
             # Login failed but has internet (Wrong login credentials)
             elif not self.access_token and self.connected and self.pre_login:              
@@ -431,7 +439,7 @@ class SlideShowApp(object):
                 self.get_image(full_path)
 
             # Device is registered but has no Internet (Functional but then suddenly disconnected)
-            elif self.device_registered and not self.connected:          
+            elif self.access_token and self.device_registered and not self.connected:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_internet.png')
                 # full_path = os.path.join(path, 'black1280.png')
