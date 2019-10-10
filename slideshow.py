@@ -112,9 +112,11 @@ class SlideShowApp(object):
         self.pre_registered = False         # validation flag  if .env file already has deviceid and deviceName
         self.pre_login = False              # validation flag  if .env file already has email and password
         self.device_registered = False      # flag for registered status
+        self.login_failed = False           # flag for online login status - bad data, user doesn't exist, or passed the wrong password
         self.playlist_associated = False    # Device has playlist associated with it
         self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
         self.ad_index = 0
+        self.timeout_counter = 0           # Counter for initial wifi connect 
         self.login()
         # self.test_register()
         self.register_device()
@@ -144,24 +146,37 @@ class SlideShowApp(object):
 
 
     def login(self):
+        if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
+            self.pre_login = True 
+        else:
+            if os.path.exists('.env'):
+                os.remove('.env')
+                print('.env file deleted')
+
+            self.pre_login = False
+
         try:
             response = requests.post(ADTECH_ENDPOINT + '/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
             print("Login response: ", response.text)
             if response.status_code == 200:     # Success
                 self.access_token = response.json().get('token')
+                self.login_failed = False
+
             elif response.status_code == 404:   # User not found
                 print(response.text)
                 if os.path.exists('.env'):
                     os.remove('.env')
                     print('.env file deleted')
-
                 print("Login error - User not found")
+                self.login_failed = True
+
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
-                print("Login error - Invalid password")
                 if os.path.exists('.env'):
                     os.remove('.env')
                     print('.env file deleted')
+                print("Login error - Invalid password")
+                self.login_failed = True
 
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
@@ -169,12 +184,14 @@ class SlideShowApp(object):
                 if os.path.exists('.env'):
                     os.remove('.env')
                     print('.env file deleted')
+                self.login_failed = True
 
             self.connected = True 
 
         except Exception as e:
             print(e)
             print("Login failed. check Internet?")
+            self.login_failed = True
             self.connected = False
 
 
@@ -187,15 +204,6 @@ class SlideShowApp(object):
                 os.remove('.env')
                 print('.env file deleted')
             self.pre_registered = False
-
-        if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
-            self.pre_login = True 
-        else:
-            if os.path.exists('.env'):
-                os.remove('.env')
-                print('.env file deleted')
-
-            self.pre_login = False
 
         try:
             response = requests.post(
@@ -210,9 +218,11 @@ class SlideShowApp(object):
             if response.status_code == 201:     # Register successful!
                 print("Registered Successfully!")
                 self.device_registered = True
+
             elif response.status_code == 302:   # Device already exists
                 print("Device already registered!")
                 self.device_registered = True
+
                 #TODO: Check if device belongs to the user. Add invalid user validation
             elif response.status_code == 422:   # Bad Data
                 print("Register - Bad data")
@@ -220,7 +230,7 @@ class SlideShowApp(object):
                     os.remove('.env')
                     print('.env file deleted')
                 self.device_registered = False
-            
+
             self.connected = True
         
         except Exception as e:
@@ -393,48 +403,47 @@ class SlideShowApp(object):
             callback = slide_full['callback']
             getattr(self, callback)()
         elif self.eligible_slides[group]['method'] == 'image':
-            # Device is not registered and has no WiFi (First time - One time Setup (no .env file))
-            if not self.access_token and not self.device_registered and not self.connected and not self.pre_registered:     
+            # Device has not logged in, has not registered and has no WiFi (First time - One time Setup (no .env file))
+            if not self.connected and not self.access_token and not self.device_registered and not self.pre_registered:     
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
 
-            #TODO: # Device is not registered but has WiFi (Wrong login credentials or Register error)               
-            elif not self.access_token and not self.device_registered and self.connected and not self.pre_registered:     
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_internet.png')
-                self.get_image(full_path)
-
-
-            #TODO: New placeholder image for WiFi setup instructions (2nd time onwards, probably transferred to another place and have to change WiFi)
+            #TODO: Display Wifi network and status
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
-            elif not self.access_token and not self.device_registered and not self.connected and self.pre_registered:       
-                path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'no_internet_from_start.png')       
-                self.get_image(full_path)            
-
+            elif not self.connected and not self.access_token and not self.device_registered and self.pre_registered:       
+                if self.timeout_counter < 10: # Initially wait..
+                    self.timeout_counter += 1
+                    path = self.dir + '/Images/Static/'
+                    full_path = os.path.join(path, 'no_internet_from_start.png')       
+                    self.get_image(full_path)
+            
+                else: # Timeout (Give up.. the wifi creds are probably wrong anyway.)
+                    path = self.dir + '/Images/Static/'
+                    full_path = os.path.join(path, 'no_internet.png')
+                    self.get_image(full_path)
 
             # Login failed but has internet (Wrong login credentials)
-            elif not self.access_token and self.connected and self.pre_login:              
+            elif self.connected and not self.pre_login and not self.access_token and self.login_failed:              
                 path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'invalid_login.png')
+                full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
 
             # Device is not registered but has internet (Login success, but failed to register)
-            elif not self.device_registered and not self.access_token and self.connected and self.pre_registered:          
+            elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
                 path = self.dir + '/Images/Static/'
-                full_path = os.path.join(path, 'not_registered.png')
+                full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
 
             # No playlist associated with this device
-            elif not self.playlist_associated and self.connected:      
+            elif self.connected and not self.playlist_associated:      
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_playlist.png')
                 self.get_image(full_path)   
 
             # Playlist is associated with the device but it's empty         
             elif self.playlist_associated and self.playlist_empty and self.connected:       
-                path = self.dir + '/Images/Static/'
+                path = self.dir + '/    Images/Static/'
                 full_path = os.path.join(path, 'empty_playlist.png')
                 self.get_image(full_path)
 
