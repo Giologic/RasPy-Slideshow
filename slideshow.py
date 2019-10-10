@@ -146,6 +146,15 @@ class SlideShowApp(object):
 
 
     def login(self):
+        if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
+            self.pre_login = True 
+        else:
+            if os.path.exists('.env'):
+                os.remove('.env')
+                print('.env file deleted')
+
+            self.pre_login = False
+
         try:
             response = requests.post(ADTECH_ENDPOINT + '/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
             print("Login response: ", response.text)
@@ -182,6 +191,7 @@ class SlideShowApp(object):
         except Exception as e:
             print(e)
             print("Login failed. check Internet?")
+            self.login_failed = True
             self.connected = False
 
 
@@ -194,15 +204,6 @@ class SlideShowApp(object):
                 os.remove('.env')
                 print('.env file deleted')
             self.pre_registered = False
-
-        if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
-            self.pre_login = True 
-        else:
-            if os.path.exists('.env'):
-                os.remove('.env')
-                print('.env file deleted')
-
-            self.pre_login = False
 
         try:
             response = requests.post(
@@ -423,13 +424,13 @@ class SlideShowApp(object):
                     self.get_image(full_path)
 
             # Login failed but has internet (Wrong login credentials)
-            elif self.connected and not self.access_token and self.pre_login and self.login_failed:              
+            elif self.connected and not self.pre_login and not self.access_token and self.login_failed:              
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
 
             # Device is not registered but has internet (Login success, but failed to register)
-            elif self.connected and not self.access_token and self.pre_registered and not self.device_registered:          
+            elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
