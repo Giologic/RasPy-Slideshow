@@ -287,70 +287,29 @@ class SlideShowApp(object):
     def fetch_advertisement(self):
         print("Fetching Ads")
         try:
-            result = requests.get(
-                ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
-                headers = {'Authorization':self.access_token}
-            )
-            print("Fetch ads Response: ", result.status_code, result.json())
-            #TODO: Catch empty playlists and unassociated devices properly
-            if result.status_code == 200:
-                print("Parsing..")
-                try:
-                    # Old parsing
-                    # for advertisement in result.json():
-                    #     # urllib.request.urlretrieve(advertisement.get('url'),  self.cache_dir + advertisement.get('title'))
-                    # New parsing
-                    for advertisement in result.json().get('adverturls'):
-                        title = str(advertisement)[50:]
-                        urllib.request.urlretrieve(advertisement,  self.cache_dir + title)
-
-                except Exception as e:
-                    # print(e)
-                    # print("Empty list.")
-                    print("pass1")
-                    pass
-
-                self.playlist_associated = True
-
-            elif result.status_code == 404:
-                print("No playlist associated with this device yet.")
-                self.playlist_associated = False
-
-            self.connected = True
-        
-        except Exception as e:
-            print("Fetch advertisement Error")
-            print(e)
-            self.connected = False
-
-    def update_advertisement(self):     # Update advertisement by reflecting/removing deleted ads in Images/cache
-        print("Updating advertisements")
-        try:
             ad_list = []
             result = requests.get(
                 ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
                 headers = {'Authorization':self.access_token}
             )
-            print("Updating ads response:", result.status_code, result.text)
+            print("Fetch Ads Response: ", result.status_code, result.json())
 
+            #TODO: Catch empty playlists and unassociated devices properly
             if result.status_code == 200:
                 print("A playlist is associated with this device.")
-                
-                print("Checking playlist...")
+                print("Parsing playlist..")
                 try:
-                    # Old parsing
-                    # for ad in result.json():
-                    #     if ad not in ad_list:
-                    #         ad_list.append(ad.get('title', None))
-                    # New parsing
                     for ad in result.json().get('adverturls'):
-                        if ad not in ad_list:
-                            title = str(ad)[50:]
-                            ad_list.append(title)
+                        title = str(ad)[50:]
+                        urllib.request.urlretrieve(ad,  self.cache_dir + title)
+
+                        if ad not in ad_list: # Add advertisement to ad list, for easier indexing (comparing contents of cache)
+                            ad_list.append(title)                            
+
                 except Exception as e:
                     print(e)
                     print("Playlist did not change. Nothing to delete")
-
+  
                 print("Ad list: ", ad_list)
                 cache_files = os.listdir(self.cache_dir)
 
@@ -372,9 +331,9 @@ class SlideShowApp(object):
                 self.playlist_associated = False
 
             self.connected = True
-
+        
         except Exception as e:
-            print("Update Advertisement Error")
+            print("Fetch advertisement Error")
             print(e)
             self.connected = False
 
@@ -443,7 +402,7 @@ class SlideShowApp(object):
 
             # Playlist is associated with the device but it's empty         
             elif self.playlist_associated and self.playlist_empty and self.connected:       
-                path = self.dir + '/    Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'empty_playlist.png')
                 self.get_image(full_path)
 
@@ -454,14 +413,13 @@ class SlideShowApp(object):
                 # full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)    
 
-            # Device is registered and has both wifi and playlist with ads (Normal operation)
-            elif len(os.listdir(path)):                                 
+            # Device is registered and has both wifi and associated playlist with ads (Normal operation)
+            elif len(os.listdir(path)):     # Cache folder contains ads
                 ## Selecting images/ads randomly
                 image = random.choice(os.listdir(path))
                 print("Image :", image)
                 full_path = os.path.join(path, image)
                 self.get_image(full_path)
-        
                 ## (Iterate) Selecting over adlist sequentially
                 # ad_list = os.listdir(path)
                 # image = ad_list[self.ad_index]
@@ -492,12 +450,12 @@ class SlideShowApp(object):
 
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
             print("Registered: ", self.device_registered, ", Connected: ", self.connected)
-            if not self.access_token:   # Self-restoring
+            if not self.access_token:   # Self-restoring/reconnecting
                 self.login()
                 self.register_device()
 
             self.fetch_advertisement()
-            self.update_advertisement()
+            # self.update_advertisement()
 
         self.prepare_slide()
         self.tk.after(5000, self.slideshow) 
