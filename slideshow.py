@@ -297,18 +297,19 @@ class SlideShowApp(object):
             #TODO: Catch empty playlists and unassociated devices properly
             if result.status_code == 200:
                 print("A playlist is associated with this device.")
-                print("Parsing playlist..")
+                print("Downloading playlist..")
                 try:
                     for ad in result.json().get('adverturls'):
                         title = str(ad)[50:]
-                        urllib.request.urlretrieve(ad,  self.cache_dir + title)
+                        print("Downloading ", title)
+                        urllib.request.urlretrieve(ad, self.cache_dir + title)
 
                         if ad not in ad_list: # Add advertisement to ad list, for easier indexing (comparing contents of cache)
                             ad_list.append(title)                            
 
                 except Exception as e:
                     print(e)
-                    print("Playlist did not change. Nothing to delete")
+                    # print("Playlist did not change. Nothing to delete")
   
                 print("Ad list: ", ad_list)
                 cache_files = os.listdir(self.cache_dir)
@@ -415,21 +416,22 @@ class SlideShowApp(object):
 
             # Device is registered and has both wifi and associated playlist with ads (Normal operation)
             elif len(os.listdir(path)):     # Cache folder contains ads
-                ## Selecting images/ads randomly
-                image = random.choice(os.listdir(path))
-                print("Image :", image)
-                full_path = os.path.join(path, image)
-                self.get_image(full_path)
-                ## (Iterate) Selecting over adlist sequentially
-                # ad_list = os.listdir(path)
-                # image = ad_list[self.ad_index]
-                # print("Index : ", self.ad_index, "Image :", image)
-                # if self.ad_index < len(ad_list)-1:
-                #     self.ad_index += 1
-                # else:
-                #     self.ad_index = 0
+                # # Selecting images/ads randomly
+                # image = random.choice(os.listdir(path))
+                # print("Image :", image)
                 # full_path = os.path.join(path, image)
                 # self.get_image(full_path)
+
+                # (Iterate) Selecting over adlist sequentially
+                ad_list = os.listdir(path)
+                image = ad_list[self.ad_index]
+                print("Index : ", self.ad_index, "Image :", image)
+                if self.ad_index < len(ad_list)-1:
+                    self.ad_index += 1
+                else:
+                    self.ad_index = 0
+                full_path = os.path.join(path, image)
+                self.get_image(full_path)
 
             else:   # All else
                 path = self.dir + '/Images/Static/'
