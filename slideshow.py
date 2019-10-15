@@ -156,7 +156,10 @@ class SlideShowApp(object):
             self.pre_login = False
 
         try:
-            response = requests.post(ADTECH_ENDPOINT + '/auth/login', data={'email': config('email', cast=str), 'password': config('password', cast=str)})
+            response = requests.post(
+                ADTECH_ENDPOINT + '/auth/login', 
+                data={'email': config('email', cast=str), 'password': config('password', cast=str)}
+            )
             print("Login response: ", response.text)
             if response.status_code == 200:     # Success
                 self.access_token = response.json().get('token')
@@ -287,6 +290,7 @@ class SlideShowApp(object):
     def fetch_advertisement(self):
         print("Fetching Ads")
         try:
+            cache_files = os.listdir(self.cache_dir)
             ad_list = []
             result = requests.get(
                 ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
@@ -301,31 +305,33 @@ class SlideShowApp(object):
                 try:
                     for ad in result.json().get('adverturls'):
                         title = str(ad)[50:]
-                        print("Downloading ", title)
-                        urllib.request.urlretrieve(ad, self.cache_dir + title)
+
+                        if title not in cache_files:
+                            print("Downloading ", title)
+                            urllib.request.urlretrieve(ad, self.cache_dir + title)
 
                         if ad not in ad_list: # Add advertisement to ad list, for easier indexing (comparing contents of cache)
                             ad_list.append(title)                            
+
+                    for file in cache_files:
+                        if file not in ad_list:
+                            print(file)
+                            os.remove(self.cache_dir+file)
+
+                    print("Ad list: ", ad_list)
 
                 except Exception as e:
                     print(e)
                     # print("Playlist did not change. Nothing to delete")
   
-                print("Ad list: ", ad_list)
-                cache_files = os.listdir(self.cache_dir)
-
-                for file in cache_files:
-                    if file not in ad_list:
-                        print(file)
-                        os.remove(self.cache_dir+file)
-                self.playlist_associated = True
-
                 if ad_list:     # Check if ad_list is empty
                     print("Playlist has", len(ad_list), "ads.")
                     self.playlist_empty = False
                 else:
                     print("Playlist is empty.")
                     self.playlist_empty = True
+
+                self.playlist_associated = True
 
             elif result.status_code == 404:
                 print("No playlist associated with this device yet.")
