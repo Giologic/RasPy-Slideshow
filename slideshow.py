@@ -430,18 +430,20 @@ class SlideShowApp(object):
 
                 # (Iterate) Selecting over adlist sequentially
                 ad_list = os.listdir(path)
-                image = ad_list[self.ad_index]
-                full_path = os.path.join(path, image)
-                self.get_image(full_path)
 
                 print("Ad Index: ", self.ad_index)
-                print("Index : ", self.ad_index, "Image :", image)
-
                 if self.ad_index < len(ad_list)-1:
                     self.ad_index += 1
                 else:
                     self.ad_index = 0
-                
+
+                image = ad_list[self.ad_index]
+                full_path = os.path.join(path, image)
+                self.get_image(full_path)
+
+                print("Index : ", self.ad_index, "Image :", image)
+
+
             else:   # All else
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'black1280.png')
