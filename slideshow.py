@@ -431,14 +431,17 @@ class SlideShowApp(object):
                 # (Iterate) Selecting over adlist sequentially
                 ad_list = os.listdir(path)
                 image = ad_list[self.ad_index]
+                full_path = os.path.join(path, image)
+                self.get_image(full_path)
+
+                print("Ad Index: ", self.ad_index)
                 print("Index : ", self.ad_index, "Image :", image)
+
                 if self.ad_index < len(ad_list)-1:
                     self.ad_index += 1
                 else:
                     self.ad_index = 0
-                full_path = os.path.join(path, image)
-                self.get_image(full_path)
-
+                
             else:   # All else
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'black1280.png')
@@ -458,7 +461,7 @@ class SlideShowApp(object):
 
         if not self.weather_last_update or (datetime.datetime.now() - self.weather_last_update > self.weather_update_frequency):
             print("Registered: ", self.device_registered, ", Connected: ", self.connected)
-            if not self.access_token:   # Self-restoring/reconnecting
+            if not self.access_token:   # Self-restoring/reconnecting, in case of disconnection
                 self.login()
                 self.register_device()
 
