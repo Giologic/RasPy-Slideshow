@@ -116,6 +116,7 @@ class SlideShowApp(object):
         self.playlist_associated = False    # Device has playlist associated with it
         self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
         self.ad_index = 0
+        self.current_ad = None
         self.ad_timer = 0
         self.play_random = False           # Randomize slides
         self.counter_timeout = 0           # Counter for initial wifi connect 
@@ -305,25 +306,26 @@ class SlideShowApp(object):
                 print("A playlist is associated with this device.")
                 print("Downloading playlist..")
                 try:
-                    # Old parsing
-                    # for advertisement in result.json():
-                    #     # urllib.request.urlretrieve(advertisement.get('url'),  self.cache_dir + advertisement.get('title'))
-                    
-                    # New parsing
-                    for ad in result.json().get('adverturls'):
-                        title = str(ad)[50:]
+                    self.play_random = result.json().get("playRandom")
+                    advertisements = result.json().get("advertisements")
+                    ad_urls = advertisements.get("advertUrls")
+                    ad_list = advertisements.get("advertNames")     
+
+                    for ad in range(len(ad_list)):
+                        url = ad_urls[ad]
+                        title = ad_list[ad]                          
 
                         if title not in cache_files:
-                            print("Downloading ", title)
-                            urllib.request.urlretrieve(ad, self.cache_dir + title)
-
-                        if ad not in ad_list: # Add advertisement to ad list, for easier indexing (comparing contents of cache)
-                            ad_list.append(title)                            
-
+                            print("Downloading", title)
+                            urllib.request.urlretrieve(url, self.cache_dir + title)
+                        
                     for file in cache_files:
                         if file not in ad_list:
                             print(file)
                             os.remove(self.cache_dir+file)
+
+                    # Ad Duration
+                    
 
                     print("Ad list: ", ad_list)
 
@@ -429,28 +431,30 @@ class SlideShowApp(object):
 
             # Device is registered and has both wifi and associated playlist with ads (Normal operation)
             elif len(os.listdir(path)):     # Cache folder contains ads
-                # # Selecting images/ads randomly
-                # if :
-                # image = random.choice(os.listdir(path))
-                # print("Image :", image)
-                # full_path = os.path.join(path, image)
-                # self.get_image(full_path)
+                if self.play_random:        # Play images/ads at random
+                    image = random.choice(os.listdir(path))
+                    print("Image :", image)
+                    full_path = os.path.join(path, image)
+                    self.get_image(full_path)
+                    self.current_ad = image
+                    print("Randomized slides")
 
-                # (Iterate) Selecting over adlist sequentially
-                ad_list = os.listdir(path)
+                else:                      # (Iterate) Selecting over adlist sequentially
+                    ad_list = os.listdir(path)
 
-                print("Ad Index: ", self.ad_index)
-                if self.ad_index < len(ad_list)-1:
-                    self.ad_index += 1
-                else:
-                    self.ad_index = 0
+                    print("Ad Index: ", self.ad_index)
+                    if self.ad_index < len(ad_list)-1:
+                        self.ad_index += 1
+                    else:
+                        self.ad_index = 0
 
-                image = ad_list[self.ad_index]
-                full_path = os.path.join(path, image)
-                self.get_image(full_path)
+                    image = ad_list[self.ad_index]
+                    full_path = os.path.join(path, image)
+                    self.get_image(full_path)
+                    self.current_ad = image
 
-                print("Index : ", self.ad_index, "Image :", image)
-
+                    print("Index : ", self.ad_index, "Image :", image)
+                    print("Sequential")
 
             else:   # All else
                 path = self.dir + '/Images/Static/'
