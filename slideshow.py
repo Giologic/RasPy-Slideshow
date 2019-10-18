@@ -116,7 +116,9 @@ class SlideShowApp(object):
         self.playlist_associated = False    # Device has playlist associated with it
         self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
         self.ad_index = 0
-        self.timeout_counter = 0           # Counter for initial wifi connect 
+        self.ad_timer = 0
+        self.play_random = False           # Randomize slides
+        self.counter_timeout = 0           # Counter for initial wifi connect 
         self.login()
         # self.test_register()
         self.register_device()
@@ -303,6 +305,11 @@ class SlideShowApp(object):
                 print("A playlist is associated with this device.")
                 print("Downloading playlist..")
                 try:
+                    # Old parsing
+                    # for advertisement in result.json():
+                    #     # urllib.request.urlretrieve(advertisement.get('url'),  self.cache_dir + advertisement.get('title'))
+                    
+                    # New parsing
                     for ad in result.json().get('adverturls'):
                         title = str(ad)[50:]
 
@@ -378,8 +385,8 @@ class SlideShowApp(object):
             #TODO: Display Wifi network and status
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
             elif not self.connected and not self.access_token and not self.device_registered and self.pre_registered:       
-                if self.timeout_counter < 10: # Initially wait..
-                    self.timeout_counter += 1
+                if self.connection_timeout < 10: # Initially wait..
+                    self.connection_timeout += 1
                     path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet_from_start.png')       
                     self.get_image(full_path)
@@ -423,6 +430,7 @@ class SlideShowApp(object):
             # Device is registered and has both wifi and associated playlist with ads (Normal operation)
             elif len(os.listdir(path)):     # Cache folder contains ads
                 # # Selecting images/ads randomly
+                # if :
                 # image = random.choice(os.listdir(path))
                 # print("Image :", image)
                 # full_path = os.path.join(path, image)
