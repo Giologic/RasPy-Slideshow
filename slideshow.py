@@ -116,7 +116,9 @@ class SlideShowApp(object):
         self.playlist_associated = False    # Device has playlist associated with it
         self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
         self.ad_index = 0
+        self.ad_list = []
         self.current_ad = None
+        self.ad_timer_list = []
         self.ad_timer = 0
         self.play_random = False           # Randomize slides
         self.counter_timeout = 0           # Counter for initial wifi connect 
@@ -294,7 +296,6 @@ class SlideShowApp(object):
         print("Fetching Ads")
         try:
             cache_files = os.listdir(self.cache_dir)
-            ad_list = []
             result = requests.get(
                 ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
                 headers = {'Authorization':self.access_token}
@@ -309,32 +310,30 @@ class SlideShowApp(object):
                     self.play_random = result.json().get("playRandom")
                     advertisements = result.json().get("advertisements")
                     ad_urls = advertisements.get("advertUrls")
-                    ad_list = advertisements.get("advertNames")     
+                    self.ad_list = advertisements.get("advertNames")
+                    self.ad_timer_list = advertisements.get("advertTimers")
 
-                    for ad in range(len(ad_list)):
+                    for ad in range(len(self.ad_list)):
                         url = ad_urls[ad]
-                        title = ad_list[ad]                          
+                        title = self.ad_list[ad]                          
 
                         if title not in cache_files:
                             print("Downloading", title)
                             urllib.request.urlretrieve(url, self.cache_dir + title)
                         
                     for file in cache_files:
-                        if file not in ad_list:
+                        if file not in self.ad_list:
                             print(file)
                             os.remove(self.cache_dir+file)
 
-                    # Ad Duration
-                    
-
-                    print("Ad list: ", ad_list)
+                    print("Ad list: ", self.ad_list)
 
                 except Exception as e:
-                    print(e)
+                    print("Pass", e)
                     # print("Playlist did not change. Nothing to delete")
   
-                if ad_list:     # Check if ad_list is empty
-                    print("Playlist has", len(ad_list), "ads.")
+                if self.ad_list:     # Check if ad_list is empty
+                    print("Playlist has", len(self.ad_list), "ads.")
                     self.playlist_empty = False
                 else:
                     print("Playlist is empty.")
@@ -383,44 +382,51 @@ class SlideShowApp(object):
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
+                self.ad_timer = 60000
 
             #TODO: Display Wifi network and status
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
             elif not self.connected and not self.access_token and not self.device_registered and self.pre_registered:       
-                if self.connection_timeout < 10: # Initially wait..
+                if self.connection_timeout < 3: # Initially wait..
                     self.connection_timeout += 1
                     path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet_from_start.png')       
                     self.get_image(full_path)
+                    self.ad_timer = 10000
             
                 else: # Timeout (Give up.. the wifi creds are probably wrong anyway.)
                     path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet.png')
                     self.get_image(full_path)
+                    self.ad_timer = 6000 #0
 
             # Login failed but has internet (Wrong login credentials)
             elif self.connected and not self.pre_login and not self.access_token and self.login_failed:              
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
+                self.ad_timer = 6000 #0
 
             # Device is not registered but has internet (Login success, but failed to register)
             elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
+                self.ad_timer = 6000 #0
 
             # No playlist associated with this device
             elif self.connected and not self.playlist_associated:      
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_playlist.png')
-                self.get_image(full_path)   
+                self.get_image(full_path)
+                self.ad_timer = 10000   
 
             # Playlist is associated with the device but it's empty         
             elif self.playlist_associated and self.playlist_empty and self.connected:       
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'empty_playlist.png')
                 self.get_image(full_path)
+                self.ad_timer = 10000
 
             # Device is registered but has no Internet (Functional but then suddenly disconnected)
             elif self.access_token and self.device_registered and not self.connected:          
@@ -428,6 +434,8 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'no_internet.png')
                 # full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)    
+                self.ad_timer = 10000
+
 
             # Device is registered and has both wifi and associated playlist with ads (Normal operation)
             elif len(os.listdir(path)):     # Cache folder contains ads
@@ -437,29 +445,32 @@ class SlideShowApp(object):
                     full_path = os.path.join(path, image)
                     self.get_image(full_path)
                     self.current_ad = image
+                    self.ad_timer = self.ad_timer_list[ self.ad_list.index(str(self.current_ad)) ]
                     print("Randomized slides")
 
                 else:                      # (Iterate) Selecting over adlist sequentially
-                    ad_list = os.listdir(path)
+                    # self.ad_list = os.listdir(path)
+                    # print("Directory files list: ", self.ad_list)
 
-                    print("Ad Index: ", self.ad_index)
-                    if self.ad_index < len(ad_list)-1:
-                        self.ad_index += 1
-                    else:
-                        self.ad_index = 0
-
-                    image = ad_list[self.ad_index]
+                    image = self.ad_list[self.ad_index]
                     full_path = os.path.join(path, image)
                     self.get_image(full_path)
                     self.current_ad = image
+                    self.ad_timer = self.ad_timer_list[ self.ad_list.index(str(self.current_ad)) ]
 
-                    print("Index : ", self.ad_index, "Image :", image)
+                    print("Index : ", self.ad_index, "Image :", image, "Interval :", self.ad_timer)
                     print("Sequential")
+
+                    if self.ad_index < len(self.ad_list)-1:
+                        self.ad_index += 1
+                    else:
+                        self.ad_index = 0
 
             else:   # All else
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)
+                self.ad_timer = 30000
 
 
     def draw_rectangle(self):
@@ -480,10 +491,10 @@ class SlideShowApp(object):
                 self.register_device()
 
             self.fetch_advertisement()
-            # self.update_advertisement()
 
         self.prepare_slide()
-        self.tk.after(5000, self.slideshow) 
+        print("Ad TIMER:", self.ad_timer)
+        self.tk.after(self.ad_timer, self.slideshow)    # Set ad_interval
 
 
     def get_image(self, path):
