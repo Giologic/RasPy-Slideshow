@@ -86,7 +86,7 @@ class SlideShowApp(object):
                             #    }
 
         self.eligible_slides = self.group_static
-        print(self.group_static)
+        print("Group Static: ", self.group_static)
         self.black_path = os.path.join(self.base_dir, 'Static', 'black1280.png')
 
         #Weather API
@@ -115,6 +115,7 @@ class SlideShowApp(object):
         self.login_failed = False           # flag for online login status - bad data, user doesn't exist, or passed the wrong password
         self.playlist_associated = False    # Device has playlist associated with it
         self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
+        self.connection_timeout = 0
         self.ad_index = 0
         self.ad_list = []
         self.current_ad = None
@@ -436,7 +437,6 @@ class SlideShowApp(object):
                 self.get_image(full_path)    
                 self.ad_timer = 10000
 
-
             # Device is registered and has both wifi and associated playlist with ads (Normal operation)
             elif len(os.listdir(path)):     # Cache folder contains ads
                 if self.play_random:        # Play images/ads at random
@@ -493,7 +493,7 @@ class SlideShowApp(object):
             self.fetch_advertisement()
 
         self.prepare_slide()
-        print("Ad TIMER:", self.ad_timer)
+        print("Ad TIMER:", self.ad_timer/1000, "seconds")
         self.tk.after(self.ad_timer, self.slideshow)    # Set ad_interval
 
 
