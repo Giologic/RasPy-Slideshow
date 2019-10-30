@@ -244,10 +244,39 @@ class SlideShowApp(object):
         
         except Exception as e:
             print(e)
-            print("Register Device Error: Register failed. Check Internet?")
+            print("Register Device Error: Register failed. Check Env file and Internet?")
             self.device_registered = False
             self.connected = False
 
+    def check_device_status(self):
+        print("******************************************************************************************")
+        print("Checking Device Register Status")
+        response = requests.get(
+            ADTECH_ENDPOINT + "/devices",
+            headers = {'Authorization': self.access_token}
+        )
+        # print(response.status_code)
+        # print(response.text)
+        all_devices = response.json().get("devices")
+        # print(all_devices)
+
+        check_device_name = None
+        for device in all_devices:
+            # print(device.items())
+            for k, v in device.items():
+                # if (k == "deviceUid" and v == config('deviceUid') ):
+                #     # print("Device Unique ID:", k, v)
+                if (k == "deviceName" and v == config('deviceName')):
+                    check_device_name = v      
+                    # print("Device Name:", k, v)          
+
+        # device_name_check = response.json().get("devices")[0].get("deviceName")
+        print("Device Name Retrieved:", check_device_name)
+        
+        if check_device_name == None:
+            self.device_registered = False
+
+        print("******************************************************************************************")
 
     def json_request(self, method='GET', path=None, body=None):
         connection = httplib2.Http()
@@ -384,36 +413,36 @@ class SlideShowApp(object):
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
                 self.ad_timer = 60000
-
+            
             #TODO: Display Wifi network and status
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
             elif not self.connected and not self.access_token and not self.device_registered and self.pre_registered:       
-                if self.connection_timeout < 3: # Initially wait..
+                if self.connection_timeout < 10: # Initially wait..
                     self.connection_timeout += 1
                     path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet_from_start.png')       
                     self.get_image(full_path)
-                    self.ad_timer = 10000
+                    self.ad_timer = 20000
             
                 else: # Timeout (Give up.. the wifi creds are probably wrong anyway.)
                     path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet.png')
                     self.get_image(full_path)
-                    self.ad_timer = 6000 #0
+                    self.ad_timer = 10000 #0
 
             # Login failed but has internet (Wrong login credentials)
             elif self.connected and not self.pre_login and not self.access_token and self.login_failed:              
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
-                self.ad_timer = 6000 #0
+                self.ad_timer = 60000
 
             # Device is not registered but has internet (Login success, but failed to register)
             elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
-                self.ad_timer = 6000 #0
+                self.ad_timer = 60000
 
             # No playlist associated with this device
             elif self.connected and not self.playlist_associated:      
@@ -491,6 +520,7 @@ class SlideShowApp(object):
                 self.register_device()
 
             self.fetch_advertisement()
+            self.check_device_status()
 
         self.prepare_slide()
         print("Ad TIMER:", self.ad_timer/1000, "seconds")
