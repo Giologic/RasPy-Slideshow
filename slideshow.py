@@ -274,7 +274,11 @@ class SlideShowApp(object):
         print("Device Name Retrieved:", check_device_name)
         
         if check_device_name == None:
+            if os.path.exists('.env'):
+                os.remove('.env')
+                print('.env file deleted')
             self.device_registered = False
+            self.pre_registered = False
 
         print("******************************************************************************************")
 
