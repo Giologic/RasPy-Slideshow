@@ -250,35 +250,44 @@ class SlideShowApp(object):
 
     def check_device_status(self):
         print("******************************************************************************************")
-        print("Checking Device Register Status")
-        response = requests.get(
-            ADTECH_ENDPOINT + "/devices",
-            headers = {'Authorization': self.access_token}
-        )
-        # print(response.status_code)
-        # print(response.text)
-        all_devices = response.json().get("devices")
-        # print(all_devices)
+        # Continuously check if device is still registered 
+        # (just in case it was removed in the webdashboard)
+        # If the device is removed, the device must clear .env file
+        try:
+            print("Checking Device Register Status")
+            response = requests.get(
+                ADTECH_ENDPOINT + "/devices",
+                headers = {'Authorization': self.access_token}
+            )
+            # print(response.status_code)
+            # print(response.text)
+            all_devices = response.json().get("devices")
+            # print(all_devices)
 
-        check_device_name = None
-        for device in all_devices:
-            # print(device.items())
-            for k, v in device.items():
-                # if (k == "deviceUid" and v == config('deviceUid') ):
-                #     # print("Device Unique ID:", k, v)
-                if (k == "deviceName" and v == config('deviceName')):
-                    check_device_name = v      
-                    # print("Device Name:", k, v)          
+            check_device_name = None
+            for device in all_devices:
+                # print(device.items())
+                for k, v in device.items():
+                    # if (k == "deviceUid" and v == config('deviceUid') ):
+                    #     # print("Device Unique ID:", k, v)
+                    if (k == "deviceName" and v == config('deviceName')):
+                        check_device_name = v      
+                        # print("Device Name:", k, v)          
 
-        # device_name_check = response.json().get("devices")[0].get("deviceName")
-        print("Device Name Retrieved:", check_device_name)
-        
-        if check_device_name == None:
-            if os.path.exists('.env'):
-                os.remove('.env')
-                print('.env file deleted')
-            self.device_registered = False
-            self.pre_registered = False
+            # device_name_check = response.json().get("devices")[0].get("deviceName")
+            print("Device Name Retrieved:", check_device_name)
+            
+            if check_device_name == None:
+                if os.path.exists('.env'):
+                    os.remove('.env')
+                    print('.env file deleted')
+                self.device_registered = False
+                self.pre_registered = False
+
+        except Exception as e:
+            # print(e)
+            print("Check Device Status Error: No Env file or Internet?")
+            self.connected = False
 
         print("******************************************************************************************")
 
