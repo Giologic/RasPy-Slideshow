@@ -131,6 +131,7 @@ class SlideShowApp(object):
         self.register_device()
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.cache_dir = self.dir + '/Images/cache/'
+        self.env_file = self.dir + '/.env'
         ## Clear cache folder on startup
         if os.path.exists(self.cache_dir):
             for file in os.listdir(self.dir +'/Images/cache'):
@@ -158,8 +159,8 @@ class SlideShowApp(object):
         if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
             self.pre_login = True 
         else:
-            if os.path.exists('.env'):
-                os.remove('.env')
+            if os.path.exists(self.env_file):
+                os.remove(self.env_file)
                 print('.env file deleted')
 
             self.pre_login = False
@@ -176,16 +177,16 @@ class SlideShowApp(object):
 
             elif response.status_code == 404:   # User not found
                 print(response.text)
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.env_file):
+                    os.remove(self.env_file)
                     print('.env file deleted')
                 print("Login error - User not found")
                 self.login_failed = True
 
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.env_file):
+                    os.remove(self.env_file)
                     print('.env file deleted')
                 print("Login error - Invalid password")
                 self.login_failed = True
@@ -193,8 +194,8 @@ class SlideShowApp(object):
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.env_file):
+                    os.remove(self.env_file)
                     print('.env file deleted')
                 self.login_failed = True
 
@@ -212,8 +213,8 @@ class SlideShowApp(object):
             self.pre_registered = True 
             print("Pre-registered!")
         else:
-            if os.path.exists('.env'):
-                os.remove('.env')
+            if os.path.exists(self.env_file):
+                os.remove(self.env_file)
                 print('.env file deleted')
             self.pre_registered = False
 
@@ -238,8 +239,8 @@ class SlideShowApp(object):
                 #TODO: Check if device belongs to the user. Add invalid user validation
             elif response.status_code == 422:   # Bad Data
                 print("Register - Bad data")
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.env_file):
+                    os.remove(self.env_file)
                     print('.env file deleted')
                 self.device_registered = False
 
@@ -281,8 +282,8 @@ class SlideShowApp(object):
             print("Device Name Retrieved:", check_device_name)
             
             if check_device_name == None:
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.env_file):
+                    os.remove(self.env_file)
                     print('.env file deleted')
                 self.device_registered = False
                 self.pre_registered = False
