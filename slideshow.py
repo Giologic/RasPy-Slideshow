@@ -129,11 +129,11 @@ class SlideShowApp(object):
         self.login()
         # self.test_register()
         self.register_device()
-        self.home_dir = os.path.dirname(os.path.abspath(__file__))
-        self.cache_dir = self.home_dir + '/Images/cache/'
+        self.dir = os.path.dirname(os.path.abspath(__file__))
+        self.cache_dir = self.dir + '/Images/cache/'
         ## Clear cache folder on startup
         if os.path.exists(self.cache_dir):
-            for file in os.listdir(self.home_dir +'/Images/cache'):
+            for file in os.listdir(self.dir +'/Images/cache'):
                 os.remove(self.cache_dir+file)
         else:
             os.makedirs(self.cache_dir)
@@ -158,8 +158,8 @@ class SlideShowApp(object):
         if config('email', default=None) and config('password', default=None):   # Check if .env file has deviceId and deviceName
             self.pre_login = True 
         else:
-            if os.path.exists(self.home_dir + '/.env'):
-                os.remove(self.home_dir + '/.env')
+            if os.path.exists('.env'):
+                os.remove('.env')
                 print('.env file deleted')
 
             self.pre_login = False
@@ -176,16 +176,16 @@ class SlideShowApp(object):
 
             elif response.status_code == 404:   # User not found
                 print(response.text)
-                if os.path.exists(self.home_dir + '/.env'):
-                    os.remove(self.home_dir + '/.env')
+                if os.path.exists('.env'):
+                    os.remove('.env')
                     print('.env file deleted')
                 print("Login error - User not found")
                 self.login_failed = True
 
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
-                if os.path.exists(self.home_dir + '/.env'):
-                    os.remove(self.home_dir + '/.env')
+                if os.path.exists('.env'):
+                    os.remove('.env')
                     print('.env file deleted')
                 print("Login error - Invalid password")
                 self.login_failed = True
@@ -193,8 +193,8 @@ class SlideShowApp(object):
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
-                if os.path.exists(self.home_dir + '/.env'):
-                    os.remove(self.home_dir + '/.env')
+                if os.path.exists('.env'):
+                    os.remove('.env')
                     print('.env file deleted')
                 self.login_failed = True
 
@@ -212,8 +212,8 @@ class SlideShowApp(object):
             self.pre_registered = True 
             print("Pre-registered!")
         else:
-            if os.path.exists(self.home_dir + '/.env'):
-                os.remove(self.home_dir + '/.env')
+            if os.path.exists('.env'):
+                os.remove('.env')
                 print('.env file deleted')
             self.pre_registered = False
 
@@ -238,8 +238,8 @@ class SlideShowApp(object):
                 #TODO: Check if device belongs to the user. Add invalid user validation
             elif response.status_code == 422:   # Bad Data
                 print("Register - Bad data")
-                if os.path.exists(self.home_dir + '/.env'):
-                    os.remove(self.home_dir + '/.env')
+                if os.path.exists('.env'):
+                    os.remove('.env')
                     print('.env file deleted')
                 self.device_registered = False
 
@@ -281,8 +281,8 @@ class SlideShowApp(object):
             print("Device Name Retrieved:", check_device_name)
             
             if check_device_name == None:
-                if os.path.exists(self.home_dir + '/.env'):
-                    os.remove(self.home_dir + '/.env')
+                if os.path.exists('.env'):
+                    os.remove('.env')
                     print('.env file deleted')
                 self.device_registered = False
                 self.pre_registered = False
@@ -546,7 +546,7 @@ class SlideShowApp(object):
         elif self.eligible_slides[group]['method'] == 'image':
             # Device has not logged in, has not registered and has no WiFi (First time - One time Setup (no .env file))
             if not self.connected and not self.access_token and not self.device_registered and not self.pre_registered:     
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
                 self.ad_timer = 1200000
@@ -556,48 +556,48 @@ class SlideShowApp(object):
             elif not self.connected and not self.access_token and not self.device_registered and self.pre_registered:       
                 if self.connection_timeout < 10: # Initially wait..
                     self.connection_timeout += 1
-                    path = self.home_dir + '/Images/Static/'
+                    path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet_from_start.png')       
                     self.get_image(full_path)
                     self.ad_timer = 20000
             
                 else: # Timeout (Give up.. the wifi creds are probably wrong anyway.)
-                    path = self.home_dir + '/Images/Static/'
+                    path = self.dir + '/Images/Static/'
                     full_path = os.path.join(path, 'no_internet.png')
                     self.get_image(full_path)
                     self.ad_timer = 10000 #0
 
             # Login failed but has internet (Wrong login credentials)
             elif self.connected and not self.pre_login and not self.access_token and self.login_failed:              
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
                 self.ad_timer = 1200000
 
             # Device is not registered but has internet (Login success, but failed to register)
             elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
                 self.ad_timer = 1200000
 
             # No playlist associated with this device
             elif self.connected and not self.playlist_associated:      
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_playlist.png')
                 self.get_image(full_path)
                 self.ad_timer = 10000   
 
             # Playlist is associated with the device but it's empty         
             elif self.playlist_associated and self.playlist_empty and self.connected:       
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'empty_playlist.png')
                 self.get_image(full_path)
                 self.ad_timer = 10000
 
             # Device is registered but has no Internet (Functional but then suddenly disconnected)
             elif self.access_token and self.device_registered and not self.connected:          
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'no_internet.png')
                 # full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)    
@@ -633,7 +633,7 @@ class SlideShowApp(object):
                         self.ad_index = 0
 
             else:   # All else
-                path = self.home_dir + '/Images/Static/'
+                path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'black1280.png')
                 self.get_image(full_path)
                 self.ad_timer = 30000
