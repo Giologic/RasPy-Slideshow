@@ -549,7 +549,7 @@ class SlideShowApp(object):
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
-                self.ad_timer = 60000
+                self.ad_timer = 1200000
             
             #TODO: Display Wifi network and status
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
@@ -572,14 +572,14 @@ class SlideShowApp(object):
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
-                self.ad_timer = 60000
+                self.ad_timer = 1200000
 
             # Device is not registered but has internet (Login success, but failed to register)
             elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
-                self.ad_timer = 60000
+                self.ad_timer = 1200000
 
             # No playlist associated with this device
             elif self.connected and not self.playlist_associated:      
