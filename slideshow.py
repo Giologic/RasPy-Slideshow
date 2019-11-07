@@ -217,33 +217,45 @@ class SlideShowApp(object):
                 print('.env file deleted')
             self.pre_registered = False
 
+        if os.path.exists('device_status.json'):
+            with open('device_status.json', 'r') as f:
+                device_status = json.load(f)
+                print(device_status)
+        else:
+            device_status = None
+            print("First Time Ever. Omg.")
+
         try:
-            response = requests.post(
-                ADTECH_ENDPOINT + '/devices', 
-                data={'deviceUid': config('deviceUid', cast=str), 
-                    'deviceName': config('deviceName', cast=str)
-                }, 
-                headers = {'Authorization':self.access_token}
-            )
-            print("Register response: ", response.status_code, response.text)
+            if not device_status and not self.check_device_status():
+                response = requests.post(
+                    ADTECH_ENDPOINT + '/devices', 
+                    data={'deviceUid': config('deviceUid', cast=str), 
+                        'deviceName': config('deviceName', cast=str)
+                    }, 
+                    headers = {'Authorization':self.access_token}
+                )
+                print("Register response: ", response.status_code, response.text)
 
-            if response.status_code == 201:     # Register successful!
-                print("Registered Successfully!")
-                self.device_registered = True
+                if response.status_code == 201:     # Register successful!
+                    print("Registered Successfully!")
+                    with open('device_status.json', 'w') as f:
+                        device_status = {'registered': True}
+                        json.dump(device_status, f)
+                    self.device_registered = True
 
-            elif response.status_code == 302:   # Device already exists
-                print("Device already registered!")
-                self.device_registered = True
+                elif response.status_code == 302:   # Device already exists
+                    print("Device already registered!")
+                    self.device_registered = True
 
-                #TODO: Check if device belongs to the user. Add invalid user validation
-            elif response.status_code == 422:   # Bad Data
-                print("Register - Bad data")
-                if os.path.exists('.env'):
-                    os.remove('.env')
-                    print('.env file deleted')
-                self.device_registered = False
+                    #TODO: Check if device belongs to the user. Add invalid user validation
+                elif response.status_code == 422:   # Bad Data
+                    print("Register - Bad data")
+                    if os.path.exists('.env'):
+                        os.remove('.env')
+                        print('.env file deleted')
+                    self.device_registered = False
 
-            self.connected = True
+                self.connected = True
         
         except Exception as e:
             print(e)
@@ -256,18 +268,21 @@ class SlideShowApp(object):
         # Continuously check if device is still registered 
         # (just in case it was removed in the webdashboard)
         # If the device is removed, the device must clear .env file
-        try:
-            print("Checking Device Register Status")
-            response = requests.get(
-                ADTECH_ENDPOINT + "/devices",
-                headers = {'Authorization': self.access_token}
-            )
-            # print(response.status_code)
-            # print(response.text)
-            all_devices = response.json().get("devices")
-            # print(all_devices)
+        check_device_name = None
 
-            check_device_name = None
+        # try:
+        print("Checking Device Register Status")
+        response = requests.get(
+            ADTECH_ENDPOINT + "/devices",
+            headers = {'Authorization': self.access_token}
+        )
+        # print(response.status_code)
+        # print(response.text)
+        all_devices = response.json().get("devices")
+        # print(all_devices)
+
+        #TODO: ETO YON
+        if all_devices:
             for device in all_devices:
                 # print(device.items())
                 for k, v in device.items():
@@ -277,20 +292,26 @@ class SlideShowApp(object):
                         check_device_name = v      
                         # print("Device Name:", k, v)          
 
-            # device_name_check = response.json().get("devices")[0].get("deviceName")
-            print("Device Name Retrieved:", check_device_name)
-            
-            if check_device_name == None:
-                if os.path.exists(self.dir + '/.env'):
-                    os.remove(self.dir + '/.env')
-                    print('.env file deleted')
-                self.device_registered = False
-                self.pre_registered = False
+        print("Device Name Retrieved:", check_device_name)
+        
+        if check_device_name == None:
+            if os.path.exists(self.dir + '/.env'):
+                os.remove(self.dir + '/.env')
+                print('.env and device_status.json files deleted')
+                try:
+                    os.remove(self.dir + '/device_status.json')
+                    print('.env and device_status.json files deleted')
+                except:
+                    print("Device_status.json doesn't exist because it's the first time! Moving on..")
+            self.device_registered = False
+            self.pre_registered = False
 
-        except Exception as e:
-            # print(e)
-            print("Check Device Status Error: No Env file or Internet?")
-            self.connected = False
+        # except Exception as e:
+        #     print(e)
+        #     print("Check Device Status Error: No Env file or Internet?")
+        #     self.connected = False
+
+        return check_device_name
 
         print("******************************************************************************************")
 
