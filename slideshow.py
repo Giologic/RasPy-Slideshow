@@ -10,6 +10,8 @@ import datetime
 from PIL import Image, ImageTk
 from decouple import config
 import requests
+import time
+from datetime import datetime as dt
 
 ADTECH_ENDPOINT = "http://54.255.190.93/api/v1"
 
@@ -117,7 +119,8 @@ class SlideShowApp(object):
         self.playlist_empty = False         # Device has playlist associated with it, but it's empty. 
         self.connection_timeout = 0
         self.ad_index = 0
-        self.ad_list = []
+        self.ad_list = []                   # Ads to be shown by device
+        self.ads_pool = []                  # All ads from all playlist in queue
         self.current_ad = None
         self.ad_timer_list = []
         self.ad_timer = 0
@@ -278,8 +281,8 @@ class SlideShowApp(object):
             print("Device Name Retrieved:", check_device_name)
             
             if check_device_name == None:
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 self.device_registered = False
                 self.pre_registered = False
@@ -335,65 +338,186 @@ class SlideShowApp(object):
             print(self.weather_cache)
 
 
-    def fetch_advertisement(self):
+    def fetch_advertisement(self):  # From test_data.json
+        print("******************************************************************************************")
         print("Fetching Ads")
+
         try:
-            cache_files = os.listdir(self.cache_dir)
             result = requests.get(
                 ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
                 headers = {'Authorization':self.access_token}
             )
             print("Fetch Ads Response: ", result.status_code, result.json())
 
-            #TODO: Catch empty playlists and unassociated devices properly
             if result.status_code == 200:
+                data = result.json()
                 print("A playlist is associated with this device.")
                 print("Downloading playlist..")
                 try:
-                    self.play_random = result.json().get("playRandom")
-                    advertisements = result.json().get("advertisements")
-                    ad_urls = advertisements.get("advertUrls")
-                    self.ad_list = advertisements.get("advertNames")
-                    self.ad_timer_list = advertisements.get("advertTimers")
+                    self.ads_pool = []           # All the ads from all playlist in queue
+                    queue_name = data ["queueName"]
+                    time_start = data["timeStart"]
+                    time_end = data["timeEnd"]
+                    carousel_data = data["playlists"]                    
+                    print("Queue Name:", queue_name)
 
-                    for ad in range(len(self.ad_list)):
-                        url = ad_urls[ad]
-                        title = self.ad_list[ad]                          
-
-                        if title not in cache_files:
-                            print("Downloading", title)
-                            urllib.request.urlretrieve(url, self.cache_dir + title)
+                    for playlist in carousel_data:
+                        print(carousel_data.index(playlist)+1, end = '. ')
+                        print(playlist["playlistName"], end = ' - ')
+                        print("Random" if playlist["playRandom"] else "Sequential")
                         
-                    for file in cache_files:
-                        if file not in self.ad_list:
-                            print(file)
-                            os.remove(self.cache_dir+file)
+                        cache_files = os.listdir(self.cache_dir)
+                        # print("Cache Files: ", cache_files)
+                        ad_urls = playlist["advertisements"]["advertUrls"]
+                        ad_names = playlist["advertisements"]["advertNames"]
+                        # print(ad_urls)
 
-                    print("Ad list: ", self.ad_list)
+                        # Completely adds all ads from all playlist on queue to a global list of ads
+                        for playlist in carousel_data:             
+                            for ad in playlist["advertisements"]["advertNames"]:
+                                if ad not in self.ads_pool:
+                                    self.ads_pool.append(ad)
+
+                        # Download image links if its not in the cache folder already
+                        for ad in range(len(ad_urls)):             
+                            url = ad_urls[ad]
+                            title = ad_names[ad]
+                            # print(" ", url, title)
+                            if title not in cache_files:
+                                print("Downloading", title)
+                                urllib.request.urlretrieve(url, self.cache_dir + title)
+                            # else:
+                            #     print(title, "is already downloaded.")
+
+                        # Delete ads in cache file if no longer in global list of ads
+                        for file in cache_files:        
+                            if file not in self.ads_pool:
+                                print("Deleting:", file)
+                                os.remove(self.cache_dir+file)
+
+                    print("")
+                    print("Cache Files: ", cache_files)
+                    print("Ads pool contains:", self.ads_pool)
+                    print("******************************************************************************************")
+                    
+                    # Choose which playlist should be displayed based on timestamps
+                    current_time = int(time.time())
+                    time_start = int(time_start/1000)
+                    time_end = int(time_end/1000)
+                    print("Current time:", dt.fromtimestamp(current_time))            
+
+                    playlist_time_start = 0
+                    playlist_time_end = 0
+
+                    if current_time > time_start and current_time < time_end:
+                        print("Queue currently selected:", queue_name)
+                        for playlist in carousel_data:
+                            # print(playlist, playlist.items())
+                            for k, v in playlist.items():
+                                # print(k, v)
+                                if (k == "timeStartPlaylist"):
+                                    playlist_time_start = int(v/1000)
+                                if (k == "timeEndPlaylist"):
+                                    playlist_time_end = int(v/1000)
+                                
+                            if current_time > playlist_time_start and current_time < playlist_time_end:
+                                print("Current Playlist:",playlist["playlistName"])
+                                print("Timeframe:", dt.fromtimestamp(playlist_time_start), "until", dt.fromtimestamp(playlist_time_end))
+                                self.ad_list = playlist["advertisements"]["advertNames"]
+                                self.ad_timer_list = playlist["advertisements"]["advertTimers"]
+                                self.play_random = playlist["playRandom"]
+
+                            print(self.ad_list)
+                        
+                        self.playlist_associated = True
+
+                    else:
+                        self.playlist_associated = False
 
                 except Exception as e:
                     print("Pass", e)
                     # print("Playlist did not change. Nothing to delete")
-  
-                if self.ad_list:     # Check if ad_list is empty
-                    print("Playlist has", len(self.ad_list), "ads.")
+
+                if self.ad_list:
+                    print("This playlist has", len(self.ad_list), "ads.")
                     self.playlist_empty = False
                 else:
-                    print("Playlist is empty.")
+                    print("This playlist is empty.")
                     self.playlist_empty = True
-
-                self.playlist_associated = True
 
             elif result.status_code == 404:
                 print("No playlist associated with this device yet.")
                 self.playlist_associated = False
 
             self.connected = True
-        
+
         except Exception as e:
-            print("Fetch advertisement Error")
+            print("Fetch Advertisement Error")
             print(e)
             self.connected = False
+
+        # self.playlist_associated = False    # Remove this when testing for reals
+
+
+    # def old_fetch_advertisement(self):
+    #     print("Fetching Ads")
+    #     try:
+    #         cache_files = os.listdir(self.cache_dir)
+    #         result = requests.get(
+    #             ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
+    #             headers = {'Authorization':self.access_token}
+    #         )
+    #         print("Fetch Ads Response: ", result.status_code, result.json())
+
+    #         #TODO: Catch empty playlists and unassociated devices properly
+    #         if result.status_code == 200:
+    #             print("A playlist is associated with this device.")
+    #             print("Downloading playlist..")
+    #             try:
+    #                 self.play_random = result.json().get("playRandom")
+    #                 advertisements = result.json().get("advertisements")
+    #                 ad_urls = advertisements.get("advertUrls")
+    #                 self.ad_list = advertisements.get("advertNames")
+    #                 self.ad_timer_list = advertisements.get("advertTimers")
+
+    #                 for ad in range(len(self.ad_list)):
+    #                     url = ad_urls[ad]
+    #                     title = self.ad_list[ad]                          
+
+    #                     if title not in cache_files:
+    #                         print("Downloading", title)
+    #                         urllib.request.urlretrieve(url, self.cache_dir + title)
+                        
+    #                 for file in cache_files:
+    #                     if file not in self.ad_list:
+    #                         print(file)
+    #                         os.remove(self.cache_dir+file)
+
+    #                 print("Ad list: ", self.ad_list)
+
+    #             except Exception as e:
+    #                 print("Pass", e)
+    #                 # print("Playlist did not change. Nothing to delete")
+  
+    #             if self.ad_list:     # Check if ad_list is empty
+    #                 print("Playlist has", len(self.ad_list), "ads.")
+    #                 self.playlist_empty = False
+    #             else:
+    #                 print("Playlist is empty.")
+    #                 self.playlist_empty = True
+
+    #             self.playlist_associated = True
+
+    #         elif result.status_code == 404:
+    #             print("No playlist associated with this device yet.")
+    #             self.playlist_associated = False
+
+    #         self.connected = True
+        
+    #     except Exception as e:
+    #         print("Fetch advertisement Error")
+    #         print(e)
+    #         self.connected = False
 
 
     def update_eligible_slides(self):
@@ -425,7 +549,7 @@ class SlideShowApp(object):
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'setup_instructions.png')
                 self.get_image(full_path)
-                self.ad_timer = 60000
+                self.ad_timer = 1200000
             
             #TODO: Display Wifi network and status
             # Device is probably registered but there's no internet from the start. (2nd Time onwards)
@@ -448,14 +572,14 @@ class SlideShowApp(object):
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_login_failed.png')
                 self.get_image(full_path)
-                self.ad_timer = 60000
+                self.ad_timer = 1200000
 
             # Device is not registered but has internet (Login success, but failed to register)
             elif self.connected and self.access_token and not self.pre_registered and not self.device_registered:          
                 path = self.dir + '/Images/Static/'
                 full_path = os.path.join(path, 'resetup_register_failed.png')
                 self.get_image(full_path)
-                self.ad_timer = 60000
+                self.ad_timer = 1200000
 
             # No playlist associated with this device
             elif self.connected and not self.playlist_associated:      
@@ -482,7 +606,7 @@ class SlideShowApp(object):
             # Device is registered and has both wifi and associated playlist with ads (Normal operation)
             elif len(os.listdir(path)):     # Cache folder contains ads
                 if self.play_random:        # Play images/ads at random
-                    image = random.choice(os.listdir(path))
+                    image = random.choice(self.ad_list)
                     print("Image :", image)
                     full_path = os.path.join(path, image)
                     self.get_image(full_path)
@@ -501,7 +625,7 @@ class SlideShowApp(object):
                     self.ad_timer = self.ad_timer_list[ self.ad_list.index(str(self.current_ad)) ]
 
                     print("Index : ", self.ad_index, "Image :", image, "Interval :", self.ad_timer)
-                    print("Sequential")
+                    print("Sequential slides")
 
                     if self.ad_index < len(self.ad_list)-1:
                         self.ad_index += 1
