@@ -213,8 +213,8 @@ class SlideShowApp(object):
             self.pre_registered = True 
             print("Pre-registered!")
         else:
-            if os.path.exists('.env'):
-                os.remove('.env')
+            if os.path.exists(self.dir + '/.env'):
+                os.remove(self.dir + '/.env')
                 print('.env file deleted')
             self.pre_registered = False
 
@@ -255,8 +255,8 @@ class SlideShowApp(object):
                     #TODO: Check if device belongs to the user. Add invalid user validation
                 elif response.status_code == 422:   # Bad Data
                     print("Register - Bad data")
-                    if os.path.exists('.env'):
-                        os.remove('.env')
+                    if os.path.exists(self.dir + '/.env'):
+                        os.remove(self.dir + '/.env')
                         print('.env file deleted')
                     self.device_registered = False
 
