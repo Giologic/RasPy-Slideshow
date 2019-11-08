@@ -229,8 +229,8 @@ class SlideShowApp(object):
 
         try:
             self.check_device_status() # ensures self.check_device_name exists-or-not.
-            print("Not Device Status:", self.device_status, "and Name from Check_device_status:", self.check_device_status())
-            if os.path.exists('.env') and self.device_status == False and self.check_device_name == None:#and not self.check_device_status():
+            print("Device Status:", self.device_status, "and Name from Check_device_status:", self.check_device_status())
+            if os.path.exists('.env') and (self.device_status == False or self.device_status == None) and self.check_device_name == None:#and not self.check_device_status():
                 response = requests.post(
                     ADTECH_ENDPOINT + '/devices', 
                     data={'deviceUid': config('deviceUid', cast=str), 
