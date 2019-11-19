@@ -177,16 +177,16 @@ class SlideShowApp(object):
 
             elif response.status_code == 404:   # User not found
                 print(response.text)
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 print("Login error - User not found")
                 self.login_failed = True
 
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 print("Login error - Invalid password")
                 self.login_failed = True
@@ -194,11 +194,12 @@ class SlideShowApp(object):
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 self.login_failed = True
 
+            print("Login Failed?: ", self.login_failed)
             self.connected = True 
 
         except Exception as e:
@@ -392,7 +393,8 @@ class SlideShowApp(object):
                     queue_name = data ["queueName"]
                     time_start = data["timeStart"]
                     time_end = data["timeEnd"]
-                    carousel_data = data["playlists"]                    
+                    carousel_data = data["playlists"]              
+                    default_data = data["defaultPlaylist"]      
                     print("Queue Name:", queue_name)
 
                     for playlist in carousel_data:
