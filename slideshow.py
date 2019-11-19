@@ -263,9 +263,21 @@ class SlideShowApp(object):
 
                 self.connected = True
             
-            # else:
-            #     print("Register Device Failed. Account/owner-device association has been removed while offline.")
-            #     print("Please hard reset the device and reconfigure credentials")
+            ## TODO: Refactor this for cleaner device-register-status-check
+            elif not os.path.exists(self.dir + '/.env') and self.device_status == False and self.check_device_name == None:#and not self.check_device_status(): 
+                print("Register Device Failed. Account/owner-device association has been removed while offline.")
+                print("Please hard reset the device and reconfigure credentials")
+                
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
+                    print('.env file deleted')
+                if os.path.exists(self.dir + '/device_status.json'):
+                    os.remove(self.dir + '/device_status.json')
+                    print('device_status_json file deleted')
+                
+                self.pre_registered = False
+                self.device_registered = False
+                    
         
         except Exception as e:
             print(e)
@@ -308,12 +320,20 @@ class SlideShowApp(object):
                     os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 if os.path.exists(self.dir + '/device_status.json'):
-                    with open('device_status.json', 'r') as f:
-                        device_status = json.load(f)
+                    try:
+                        with open('device_status.json', 'r') as f:
+                            device_status = json.load(f)
 
-                    device_status['registered']= False                 
-                    with open('device_status.json', 'w') as f:
-                        json.dump(device_status, f)
+                        device_status['registered']= False                 
+                        
+                        with open('device_status.json', 'w') as f:
+                            json.dump(device_status, f)
+                    except Exception as e:
+                        print(e)
+                        print("This must be your first time, because device_status.json was empty")
+                        
+                        with open('device_status.json', 'w') as f:
+                            f.write("{\"registered\":false}")
                         
                 self.device_registered = False
                 self.pre_registered = False
