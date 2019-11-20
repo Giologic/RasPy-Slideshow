@@ -410,20 +410,46 @@ class SlideShowApp(object):
                 print("Downloading playlist..")
                 try:
                     self.ads_pool = []           # All the ads from all playlist in queue
+                    cache_files = os.listdir(self.cache_dir)
+                    # print("Cache Files: ", cache_files)
                     queue_name = data ["queueName"]
                     time_start = data["timeStart"]
                     time_end = data["timeEnd"]
                     carousel_data = data["playlists"]              
-                    default_data = data["defaultPlaylist"]      
+                    default_playlist = data["defaultPlaylist"]      
                     print("Queue Name:", queue_name)
 
+                    ##### Parsing -- DEFAULT PLAYLIST #####
+                    # [DEFAULT PLAYLIST] Completely adds all ads from default playlist on queue to a global list of ads
+                    for ad in default_playlist["advertisements"]["advertNames"]:
+                        if ad not in self.ads_pool:
+                            self.ads_pool.append(ad)
+
+                    # [DEFAULT PLAYLIST] Download image links if not in the cache folder already
+                    default_ad_urls = default_playlist["advertisements"]["advertUrls"]
+                    default_ad_names = default_playlist["advertisements"]["advertNames"]
+                    for ad in range(len(default_ad_urls)):
+                        url = default_ad_urls[ad]
+                        title = default_ad_names[ad]
+                        # print(Default, " ", url, title)
+                        if title not in cache_files:
+                            print("Downloading", title)
+                            urllib.request.urlretrieve(url, self.cache_dir + title)
+                        # else:
+                        #   print(title, "is already downloaded.")
+                    
+                    # # [DEFAULT PLAYLIST] Delete ads in cache folder if no longer in global list of ads
+                    # for file in cache_files:
+                    #     if file not in self.ads_pool:
+                    #         print
+
+
+                    ##### Parsing -- PLAYLISTS #####
                     for playlist in carousel_data:
                         print(carousel_data.index(playlist)+1, end = '. ')
                         print(playlist["playlistName"], end = ' - ')
-                        print("Random" if playlist["playRandom"] else "Sequential")
-                        
-                        cache_files = os.listdir(self.cache_dir)
-                        # print("Cache Files: ", cache_files)
+                        print("Random" if playlist["playRandom"] else "Sequential")                        
+
                         ad_urls = playlist["advertisements"]["advertUrls"]
                         ad_names = playlist["advertisements"]["advertNames"]
                         # print(ad_urls)
@@ -445,27 +471,27 @@ class SlideShowApp(object):
                             # else:
                             #     print(title, "is already downloaded.")
 
-                        # Delete ads in cache file if no longer in global list of ads
-                        for file in cache_files:        
-                            if file not in self.ads_pool:
-                                print("Deleting:", file)
-                                os.remove(self.cache_dir+file)
+                    ## [FOR BOTH DEFAULT PLAYLIST AND PLAYLISTS] Delete ads in cache folder if no longer in global list of ads
+                    for file in cache_files:        
+                        if file not in self.ads_pool:
+                            print("Deleting:", file)
+                            os.remove(self.cache_dir+file)
 
                     print("")
                     print("Cache Files: ", cache_files)
                     print("Ads pool contains:", self.ads_pool)
                     print("******************************************************************************************")
                     
-                    # Choose which playlist should be displayed based on timestamps
+                    ## Choose which playlist should be displayed based on timestamps
                     current_time = int(time.time())
-                    time_start = int(time_start/1000)
-                    time_end = int(time_end/1000)
+                    queue_time_start = int(time_start/1000)
+                    queue_time_end = int(time_end/1000)
                     print("Current time:", dt.fromtimestamp(current_time))            
 
                     playlist_time_start = 0
                     playlist_time_end = 0
 
-                    if current_time > time_start and current_time < time_end:
+                    if current_time > queue_time_start and current_time < queue_time_end:
                         print("Queue currently selected:", queue_name)
                         for playlist in carousel_data:
                             # print(playlist, playlist.items())
@@ -475,15 +501,23 @@ class SlideShowApp(object):
                                     playlist_time_start = int(v/1000)
                                 if (k == "timeEndPlaylist"):
                                     playlist_time_end = int(v/1000)
-                                
+                            
+                            # Select which playlist to play if current time falls within its timeframe
                             if current_time > playlist_time_start and current_time < playlist_time_end:
                                 print("Current Playlist:",playlist["playlistName"])
                                 print("Timeframe:", dt.fromtimestamp(playlist_time_start), "until", dt.fromtimestamp(playlist_time_end))
                                 self.ad_list = playlist["advertisements"]["advertNames"]
                                 self.ad_timer_list = playlist["advertisements"]["advertTimers"]
                                 self.play_random = playlist["playRandom"]
+                                break
+                            
+                            else:   # Use Default Playlist if there's no playlist assigned to play at current time
+                                print("Using Default Playlist", default_playlist["playlistName"])
+                                self.ad_list = default_playlist["advertisements"]["advertNames"]
+                                self.ad_timer_list = default_playlist["advertisements"]["advertTimers"]
+                                self.play_random = default_playlist["playDefaultRandom"]
 
-                            print(self.ad_list)
+                        print(self.ad_list)
                         
                         self.playlist_associated = True
 
@@ -611,7 +645,14 @@ class SlideShowApp(object):
                     # self.ad_list = os.listdir(path)
                     # print("Directory files list: ", self.ad_list)
 
-                    image = self.ad_list[self.ad_index]
+                    try:
+                        image = self.ad_list[self.ad_index]
+                    except Exception as e: # Reset index to 0 
+                        # print(e)
+                        print("Have to reset because the index probably overflown when ads from the playlist were deleted down to the last ad.")
+                        self.ad_index = 0
+                        image = self.ad_list[self.ad_index]
+
                     full_path = os.path.join(path, image)
                     self.get_image(full_path)
                     self.current_ad = image
