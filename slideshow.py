@@ -126,9 +126,10 @@ class SlideShowApp(object):
         self.ad_timer = 0
         self.play_random = False           # Randomize slides
         self.counter_timeout = 0           # Counter for initial wifi connect 
-        self.login()
+        # self.login()
         # self.test_register()
-        self.register_device()
+        # self.register_device()
+        self.device_status = False         # Offline record if device registration was successful on API side
         self.dir = os.path.dirname(os.path.abspath(__file__))
         self.cache_dir = self.dir + '/Images/cache/'
         ## Clear cache folder on startup
@@ -176,16 +177,16 @@ class SlideShowApp(object):
 
             elif response.status_code == 404:   # User not found
                 print(response.text)
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 print("Login error - User not found")
                 self.login_failed = True
 
             elif response.status_code == 422:   # Invalid password
                 print(response.text)
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 print("Login error - Invalid password")
                 self.login_failed = True
@@ -193,11 +194,12 @@ class SlideShowApp(object):
             elif response.status_code == 400:   # Bad Data
                 print(response.text)
                 print("Login error - Bad data") 
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
                 self.login_failed = True
 
+            print("Login Failed?: ", self.login_failed)
             self.connected = True 
 
         except Exception as e:
@@ -212,38 +214,70 @@ class SlideShowApp(object):
             self.pre_registered = True 
             print("Pre-registered!")
         else:
-            if os.path.exists('.env'):
-                os.remove('.env')
+            if os.path.exists(self.dir + '/.env'):
+                os.remove(self.dir + '/.env')
                 print('.env file deleted')
             self.pre_registered = False
 
+        if os.path.exists(self.dir + '/device_status.json'):
+            with open(self.dir + '/device_status.json', 'r') as f:
+                device_status = json.load(f)
+                self.device_status = device_status['registered']
+                print("DEVICE STATUS: ",self.device_status)
+        else:
+            self.device_status = None
+            print("First Time Ever. Omg.")
+
         try:
-            response = requests.post(
-                ADTECH_ENDPOINT + '/devices', 
-                data={'deviceUid': config('deviceUid', cast=str), 
-                    'deviceName': config('deviceName', cast=str)
-                }, 
-                headers = {'Authorization':self.access_token}
-            )
-            print("Register response: ", response.status_code, response.text)
+            self.check_device_status() # ensures self.check_device_name exists-or-not.
+            print("Device Status:", self.device_status, "and Name from Check_device_status:", self.check_device_status())
+            if os.path.exists(self.dir + '/.env') and (self.device_status == False or self.device_status == None) and self.check_device_name == None:#and not self.check_device_status():
+                response = requests.post(
+                    ADTECH_ENDPOINT + '/devices', 
+                    data={'deviceUid': config('deviceUid', cast=str), 
+                        'deviceName': config('deviceName', cast=str)
+                    }, 
+                    headers = {'Authorization':self.access_token}
+                )
+                print("Register response: ", response.status_code, response.text)
 
-            if response.status_code == 201:     # Register successful!
-                print("Registered Successfully!")
-                self.device_registered = True
+                if response.status_code == 201:     # Register successful!
+                    print("Registered Successfully!")
+                    with open(self.dir + '/device_status.json', 'w') as f:
+                        device_status = {'registered': True}
+                        json.dump(device_status, f)
+                        self.device_status = True
+                    self.device_registered = True
 
-            elif response.status_code == 302:   # Device already exists
-                print("Device already registered!")
-                self.device_registered = True
+                elif response.status_code == 302:   # Device already exists
+                    print("Device already registered!")
+                    self.device_registered = True
 
-                #TODO: Check if device belongs to the user. Add invalid user validation
-            elif response.status_code == 422:   # Bad Data
-                print("Register - Bad data")
-                if os.path.exists('.env'):
-                    os.remove('.env')
+                    #TODO: Check if device belongs to the user. Add invalid user validation
+                elif response.status_code == 422:   # Bad Data
+                    print("Register - Bad data")
+                    if os.path.exists(self.dir + '/.env'):
+                        os.remove(self.dir + '/.env')
+                        print('.env file deleted')
+                    self.device_registered = False
+
+                self.connected = True
+            
+            ## TODO: Refactor this for cleaner device-register-status-check
+            elif not os.path.exists(self.dir + '/.env') and self.device_status == False and self.check_device_name == None:#and not self.check_device_status(): 
+                print("Register Device Failed. Account/owner-device association has been removed while offline.")
+                print("Please hard reset the device and reconfigure credentials")
+                
+                if os.path.exists(self.dir + '/.env'):
+                    os.remove(self.dir + '/.env')
                     print('.env file deleted')
+                if os.path.exists(self.dir + '/device_status.json'):
+                    os.remove(self.dir + '/device_status.json')
+                    print('device_status_json file deleted')
+                
+                self.pre_registered = False
                 self.device_registered = False
-
-            self.connected = True
+                    
         
         except Exception as e:
             print(e)
@@ -256,6 +290,8 @@ class SlideShowApp(object):
         # Continuously check if device is still registered 
         # (just in case it was removed in the webdashboard)
         # If the device is removed, the device must clear .env file
+        self.check_device_name = None
+
         try:
             print("Checking Device Register Status")
             response = requests.get(
@@ -267,30 +303,49 @@ class SlideShowApp(object):
             all_devices = response.json().get("devices")
             # print(all_devices)
 
-            check_device_name = None
-            for device in all_devices:
-                # print(device.items())
-                for k, v in device.items():
-                    # if (k == "deviceUid" and v == config('deviceUid') ):
-                    #     # print("Device Unique ID:", k, v)
-                    if (k == "deviceName" and v == config('deviceName')):
-                        check_device_name = v      
-                        # print("Device Name:", k, v)          
-
-            # device_name_check = response.json().get("devices")[0].get("deviceName")
-            print("Device Name Retrieved:", check_device_name)
+            #TODO: ETO YON
+            if all_devices:
+                for device in all_devices:
+                    # print(device.items())
+                    for k, v in device.items():
+                        # if (k == "deviceUid" and v == config('deviceUid') ):
+                        #     # print("Device Unique ID:", k, v)
+                        if (k == "deviceName" and v == config('deviceName')):
+                            self.check_device_name = v      
+                            # print("Device Name:", k, v)          
             
-            if check_device_name == None:
+            if self.check_device_name == None and self.device_status == True:   # Delete .env and toggle register flag status while online
+                self.device_status = False
                 if os.path.exists(self.dir + '/.env'):
                     os.remove(self.dir + '/.env')
                     print('.env file deleted')
+                if os.path.exists(self.dir + '/device_status.json'):
+                    try:
+                        with open('device_status.json', 'r') as f:
+                            device_status = json.load(f)
+
+                        device_status['registered']= False                 
+                        
+                        with open('device_status.json', 'w') as f:
+                            json.dump(device_status, f)
+                    except Exception as e:
+                        print(e)
+                        print("This must be your first time, because device_status.json was empty")
+                        
+                        with open('device_status.json', 'w') as f:
+                            f.write("{\"registered\":false}")
+                        
                 self.device_registered = False
                 self.pre_registered = False
 
+            print("Device Name Retrieved:", self.check_device_name, "Self.device_status", self.device_status)
+
         except Exception as e:
-            # print(e)
+            print(e)
             print("Check Device Status Error: No Env file or Internet?")
             self.connected = False
+
+        print("Done checking device status.")
 
         print("******************************************************************************************")
 
@@ -355,19 +410,40 @@ class SlideShowApp(object):
                 print("Downloading playlist..")
                 try:
                     self.ads_pool = []           # All the ads from all playlist in queue
+                    cache_files = os.listdir(self.cache_dir)
+                    # print("Cache Files: ", cache_files)
                     queue_name = data ["queueName"]
                     time_start = data["timeStart"]
                     time_end = data["timeEnd"]
-                    carousel_data = data["playlists"]                    
+                    carousel_data = data["playlists"]              
+                    default_playlist = data["defaultPlaylist"]      
                     print("Queue Name:", queue_name)
 
+                    ##### Parsing -- DEFAULT PLAYLIST #####
+                    # [DEFAULT PLAYLIST] Completely adds all ads from default playlist on queue to a global list of ads
+                    for ad in default_playlist["advertisements"]["advertNames"]:
+                        if ad not in self.ads_pool:
+                            self.ads_pool.append(ad)
+
+                    # [DEFAULT PLAYLIST] Download image links if not in the cache folder already
+                    default_ad_urls = default_playlist["advertisements"]["advertUrls"]
+                    default_ad_names = default_playlist["advertisements"]["advertNames"]
+                    for ad in range(len(default_ad_urls)):
+                        url = default_ad_urls[ad]
+                        title = default_ad_names[ad]
+                        # print(Default, " ", url, title)
+                        if title not in cache_files:
+                            print("Downloading", title)
+                            urllib.request.urlretrieve(url, self.cache_dir + title)
+                        # else:
+                        #   print(title, "is already downloaded.")
+
+                    ##### Parsing -- PRIORITY PLAYLISTS #####
                     for playlist in carousel_data:
                         print(carousel_data.index(playlist)+1, end = '. ')
                         print(playlist["playlistName"], end = ' - ')
-                        print("Random" if playlist["playRandom"] else "Sequential")
-                        
-                        cache_files = os.listdir(self.cache_dir)
-                        # print("Cache Files: ", cache_files)
+                        print("Random" if playlist["playRandom"] else "Sequential")                        
+
                         ad_urls = playlist["advertisements"]["advertUrls"]
                         ad_names = playlist["advertisements"]["advertNames"]
                         # print(ad_urls)
@@ -389,27 +465,27 @@ class SlideShowApp(object):
                             # else:
                             #     print(title, "is already downloaded.")
 
-                        # Delete ads in cache file if no longer in global list of ads
-                        for file in cache_files:        
-                            if file not in self.ads_pool:
-                                print("Deleting:", file)
-                                os.remove(self.cache_dir+file)
+                    ## [FOR BOTH DEFAULT PLAYLIST AND PRIORITY PLAYLISTS] Delete ads in cache folder if no longer in global list of ads
+                    for file in cache_files:        
+                        if file not in self.ads_pool:
+                            print("Deleting:", file)
+                            os.remove(self.cache_dir+file)
 
                     print("")
                     print("Cache Files: ", cache_files)
                     print("Ads pool contains:", self.ads_pool)
                     print("******************************************************************************************")
                     
-                    # Choose which playlist should be displayed based on timestamps
+                    ## Choose which playlist should be displayed based on timestamps
                     current_time = int(time.time())
-                    time_start = int(time_start/1000)
-                    time_end = int(time_end/1000)
+                    queue_time_start = int(time_start/1000)
+                    queue_time_end = int(time_end/1000)
                     print("Current time:", dt.fromtimestamp(current_time))            
 
                     playlist_time_start = 0
                     playlist_time_end = 0
 
-                    if current_time > time_start and current_time < time_end:
+                    if current_time > queue_time_start and current_time < queue_time_end:
                         print("Queue currently selected:", queue_name)
                         for playlist in carousel_data:
                             # print(playlist, playlist.items())
@@ -419,15 +495,23 @@ class SlideShowApp(object):
                                     playlist_time_start = int(v/1000)
                                 if (k == "timeEndPlaylist"):
                                     playlist_time_end = int(v/1000)
-                                
+                            
+                            # Select which playlist to play if current time falls within its timeframe
                             if current_time > playlist_time_start and current_time < playlist_time_end:
                                 print("Current Playlist:",playlist["playlistName"])
                                 print("Timeframe:", dt.fromtimestamp(playlist_time_start), "until", dt.fromtimestamp(playlist_time_end))
                                 self.ad_list = playlist["advertisements"]["advertNames"]
                                 self.ad_timer_list = playlist["advertisements"]["advertTimers"]
                                 self.play_random = playlist["playRandom"]
+                                break
+                            
+                            else:   # Use Default Playlist if there's no playlist assigned to play at current time
+                                print("Using Default Playlist", default_playlist["playlistName"])
+                                self.ad_list = default_playlist["advertisements"]["advertNames"]
+                                self.ad_timer_list = default_playlist["advertisements"]["advertTimers"]
+                                self.play_random = default_playlist["playDefaultRandom"]
 
-                            print(self.ad_list)
+                        print(self.ad_list)
                         
                         self.playlist_associated = True
 
@@ -455,69 +539,6 @@ class SlideShowApp(object):
             print("Fetch Advertisement Error")
             print(e)
             self.connected = False
-
-        # self.playlist_associated = False    # Remove this when testing for reals
-
-
-    # def old_fetch_advertisement(self):
-    #     print("Fetching Ads")
-    #     try:
-    #         cache_files = os.listdir(self.cache_dir)
-    #         result = requests.get(
-    #             ADTECH_ENDPOINT + "/devices/" + config('deviceUid', default=None, cast=str) + "/carousel", 
-    #             headers = {'Authorization':self.access_token}
-    #         )
-    #         print("Fetch Ads Response: ", result.status_code, result.json())
-
-    #         #TODO: Catch empty playlists and unassociated devices properly
-    #         if result.status_code == 200:
-    #             print("A playlist is associated with this device.")
-    #             print("Downloading playlist..")
-    #             try:
-    #                 self.play_random = result.json().get("playRandom")
-    #                 advertisements = result.json().get("advertisements")
-    #                 ad_urls = advertisements.get("advertUrls")
-    #                 self.ad_list = advertisements.get("advertNames")
-    #                 self.ad_timer_list = advertisements.get("advertTimers")
-
-    #                 for ad in range(len(self.ad_list)):
-    #                     url = ad_urls[ad]
-    #                     title = self.ad_list[ad]                          
-
-    #                     if title not in cache_files:
-    #                         print("Downloading", title)
-    #                         urllib.request.urlretrieve(url, self.cache_dir + title)
-                        
-    #                 for file in cache_files:
-    #                     if file not in self.ad_list:
-    #                         print(file)
-    #                         os.remove(self.cache_dir+file)
-
-    #                 print("Ad list: ", self.ad_list)
-
-    #             except Exception as e:
-    #                 print("Pass", e)
-    #                 # print("Playlist did not change. Nothing to delete")
-  
-    #             if self.ad_list:     # Check if ad_list is empty
-    #                 print("Playlist has", len(self.ad_list), "ads.")
-    #                 self.playlist_empty = False
-    #             else:
-    #                 print("Playlist is empty.")
-    #                 self.playlist_empty = True
-
-    #             self.playlist_associated = True
-
-    #         elif result.status_code == 404:
-    #             print("No playlist associated with this device yet.")
-    #             self.playlist_associated = False
-
-    #         self.connected = True
-        
-    #     except Exception as e:
-    #         print("Fetch advertisement Error")
-    #         print(e)
-    #         self.connected = False
 
 
     def update_eligible_slides(self):
@@ -618,7 +639,14 @@ class SlideShowApp(object):
                     # self.ad_list = os.listdir(path)
                     # print("Directory files list: ", self.ad_list)
 
-                    image = self.ad_list[self.ad_index]
+                    try:
+                        image = self.ad_list[self.ad_index]
+                    except Exception as e: # Reset index to 0 
+                        # print(e)
+                        print("Have to reset because the index probably overflown when ads from the playlist were deleted down to the last ad.")
+                        self.ad_index = 0
+                        image = self.ad_list[self.ad_index]
+
                     full_path = os.path.join(path, image)
                     self.get_image(full_path)
                     self.current_ad = image
