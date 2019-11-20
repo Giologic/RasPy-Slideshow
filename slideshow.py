@@ -437,14 +437,8 @@ class SlideShowApp(object):
                             urllib.request.urlretrieve(url, self.cache_dir + title)
                         # else:
                         #   print(title, "is already downloaded.")
-                    
-                    # # [DEFAULT PLAYLIST] Delete ads in cache folder if no longer in global list of ads
-                    # for file in cache_files:
-                    #     if file not in self.ads_pool:
-                    #         print
 
-
-                    ##### Parsing -- PLAYLISTS #####
+                    ##### Parsing -- PRIORITY PLAYLISTS #####
                     for playlist in carousel_data:
                         print(carousel_data.index(playlist)+1, end = '. ')
                         print(playlist["playlistName"], end = ' - ')
@@ -471,7 +465,7 @@ class SlideShowApp(object):
                             # else:
                             #     print(title, "is already downloaded.")
 
-                    ## [FOR BOTH DEFAULT PLAYLIST AND PLAYLISTS] Delete ads in cache folder if no longer in global list of ads
+                    ## [FOR BOTH DEFAULT PLAYLIST AND PRIORITY PLAYLISTS] Delete ads in cache folder if no longer in global list of ads
                     for file in cache_files:        
                         if file not in self.ads_pool:
                             print("Deleting:", file)
